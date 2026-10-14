@@ -1,0 +1,18 @@
+<!--
+  Plan one 3D path through every waypoint when the goals arrive or change, then follow it without
+  stopping at intermediate waypoints. Unlike navigate_to_pose_3d.xml, it does not replan along
+  the way: Nav2's RemovePassedGoals drops a waypoint as soon as the vehicle is near it, which cuts
+  survey corners, so obstacles the sonar finds after planning are not avoided. There are no
+  recovery behaviors: a navigation failure is reported to the caller, who decides whether to retry
+  or hand control back to the pilot.
+-->
+<root BTCPP_format="4" main_tree_to_execute="NavigateThroughPoses3D">
+  <BehaviorTree ID="NavigateThroughPoses3D">
+    <PipelineSequence name="PlanOnGoalUpdateThenFollow">
+      <GoalUpdatedController>
+        <ComputePathThroughPoses goals="{goals}" path="{path}" planner_id="CostmapPlanner3D" error_code_id="{compute_path_error_code}"/>
+      </GoalUpdatedController>
+      <FollowPath path="{path}" controller_id="FollowPath" goal_checker_id="goal_checker" progress_checker_id="progress_checker" error_code_id="{follow_path_error_code}"/>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>

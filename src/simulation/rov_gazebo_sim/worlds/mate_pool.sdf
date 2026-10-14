@@ -1,0 +1,199 @@
+<?xml version="1.0" ?>
+<!--
+  A competition-style pool, loosely inspired by the props at MATE ROV competitions: PVC frames and
+  pipes, a wreck and a mooring line. Interior 20 x 12 m, 4 m deep. Frames follow REP 103: x east,
+  y north, z up, with the water surface at z = 0 and the floor at z = -4. The vehicle is spawned
+  separately (models/rov.sdf.xacro), so its sensor noise can be set at launch.
+
+  Gravity is off: the vehicle is trimmed neutrally buoyant, and every prop is static.
+-->
+<sdf version="1.9">
+  <world name="mate_pool">
+    <physics name="4ms" type="ignored">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <gravity>0 0 0</gravity>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+
+    <scene>
+      <ambient>0.5 0.6 0.7 1</ambient>
+      <background>0.05 0.25 0.4 1</background>
+    </scene>
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <direction>-0.3 0.2 -1</direction>
+      <cast_shadows>false</cast_shadows>
+    </light>
+
+    <!-- Tiled floor and four walls -->
+    <model name="pool">
+      <static>true</static>
+      <link name="structure">
+        <collision name="floor_collision">
+          <pose>0 0 -4.1 0 0 0</pose>
+          <geometry><box><size>21 13 0.2</size></box></geometry>
+        </collision>
+        <visual name="floor_visual">
+          <pose>0 0 -4.1 0 0 0</pose>
+          <geometry><box><size>21 13 0.2</size></box></geometry>
+          <material><ambient>0.55 0.75 0.85 1</ambient><diffuse>0.55 0.75 0.85 1</diffuse></material>
+        </visual>
+        <collision name="east_wall_collision">
+          <pose>10.1 0 -1.8 0 0 0</pose>
+          <geometry><box><size>0.2 12.4 4.4</size></box></geometry>
+        </collision>
+        <visual name="east_wall_visual">
+          <pose>10.1 0 -1.8 0 0 0</pose>
+          <geometry><box><size>0.2 12.4 4.4</size></box></geometry>
+          <material><ambient>0.8 0.88 0.92 1</ambient><diffuse>0.8 0.88 0.92 1</diffuse></material>
+        </visual>
+        <collision name="west_wall_collision">
+          <pose>-10.1 0 -1.8 0 0 0</pose>
+          <geometry><box><size>0.2 12.4 4.4</size></box></geometry>
+        </collision>
+        <visual name="west_wall_visual">
+          <pose>-10.1 0 -1.8 0 0 0</pose>
+          <geometry><box><size>0.2 12.4 4.4</size></box></geometry>
+          <material><ambient>0.8 0.88 0.92 1</ambient><diffuse>0.8 0.88 0.92 1</diffuse></material>
+        </visual>
+        <collision name="north_wall_collision">
+          <pose>0 6.1 -1.8 0 0 0</pose>
+          <geometry><box><size>20.4 0.2 4.4</size></box></geometry>
+        </collision>
+        <visual name="north_wall_visual">
+          <pose>0 6.1 -1.8 0 0 0</pose>
+          <geometry><box><size>20.4 0.2 4.4</size></box></geometry>
+          <material><ambient>0.8 0.88 0.92 1</ambient><diffuse>0.8 0.88 0.92 1</diffuse></material>
+        </visual>
+        <collision name="south_wall_collision">
+          <pose>0 -6.1 -1.8 0 0 0</pose>
+          <geometry><box><size>20.4 0.2 4.4</size></box></geometry>
+        </collision>
+        <visual name="south_wall_visual">
+          <pose>0 -6.1 -1.8 0 0 0</pose>
+          <geometry><box><size>20.4 0.2 4.4</size></box></geometry>
+          <material><ambient>0.8 0.88 0.92 1</ambient><diffuse>0.8 0.88 0.92 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Mooring line from the floor to a surface buoy, at (4, 2): the obstacle in the way of the
+         around_the_mooring mission -->
+    <model name="mooring_line">
+      <static>true</static>
+      <pose>4 2 -2 0 0 0</pose>
+      <link name="line">
+        <collision name="line_collision">
+          <geometry><cylinder><radius>0.15</radius><length>4</length></cylinder></geometry>
+        </collision>
+        <visual name="line_visual">
+          <geometry><cylinder><radius>0.15</radius><length>4</length></cylinder></geometry>
+          <material><ambient>0.95 0.55 0.1 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material>
+        </visual>
+        <collision name="buoy_collision">
+          <pose>0 0 1.6 0 0 0</pose>
+          <geometry><sphere><radius>0.25</radius></sphere></geometry>
+        </collision>
+        <visual name="buoy_visual">
+          <pose>0 0 1.6 0 0 0</pose>
+          <geometry><sphere><radius>0.25</radius></sphere></geometry>
+          <material><ambient>0.9 0.15 0.1 1</ambient><diffuse>0.9 0.15 0.1 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Coral restoration frame: a 1.2 m square of PVC pipe, 0.5 m tall, on the floor at (-5, -3) -->
+    <model name="coral_frame">
+      <static>true</static>
+      <pose>-5 -3 -4 0 0 0</pose>
+      <link name="frame">
+        <collision name="post_ne_collision"><pose>0.6 0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry></collision>
+        <visual name="post_ne_visual"><pose>0.6 0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="post_nw_collision"><pose>-0.6 0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry></collision>
+        <visual name="post_nw_visual"><pose>-0.6 0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="post_se_collision"><pose>0.6 -0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry></collision>
+        <visual name="post_se_visual"><pose>0.6 -0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="post_sw_collision"><pose>-0.6 -0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry></collision>
+        <visual name="post_sw_visual"><pose>-0.6 -0.6 0.25 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.5</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="rail_n_collision"><pose>0 0.6 0.5 0 1.5708 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry></collision>
+        <visual name="rail_n_visual"><pose>0 0.6 0.5 0 1.5708 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="rail_s_collision"><pose>0 -0.6 0.5 0 1.5708 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry></collision>
+        <visual name="rail_s_visual"><pose>0 -0.6 0.5 0 1.5708 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="rail_e_collision"><pose>0.6 0 0.5 1.5708 0 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry></collision>
+        <visual name="rail_e_visual"><pose>0.6 0 0.5 1.5708 0 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="rail_w_collision"><pose>-0.6 0 0.5 1.5708 0 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry></collision>
+        <visual name="rail_w_visual"><pose>-0.6 0 0.5 1.5708 0 0</pose><geometry><cylinder><radius>0.05</radius><length>1.2</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Shipwreck: a hull-sized block resting on the floor at (-4, 3.5) -->
+    <model name="shipwreck">
+      <static>true</static>
+      <pose>-4 3.5 -3.55 0 0 0.35</pose>
+      <link name="hull">
+        <collision name="hull_collision"><geometry><box><size>2.4 1.0 0.9</size></box></geometry></collision>
+        <visual name="hull_visual">
+          <geometry><box><size>2.4 1.0 0.9</size></box></geometry>
+          <material><ambient>0.45 0.3 0.2 1</ambient><diffuse>0.45 0.3 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- PVC gate at (7, -2): two posts from the floor and a crossbar at z = -1, 1.5 m apart -->
+    <model name="gate">
+      <static>true</static>
+      <pose>7 -2 -4 0 0 0</pose>
+      <link name="pipes">
+        <collision name="post_n_collision"><pose>0 0.75 1.5 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>3</length></cylinder></geometry></collision>
+        <visual name="post_n_visual"><pose>0 0.75 1.5 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>3</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="post_s_collision"><pose>0 -0.75 1.5 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>3</length></cylinder></geometry></collision>
+        <visual name="post_s_visual"><pose>0 -0.75 1.5 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>3</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material></visual>
+        <collision name="crossbar_collision"><pose>0 0 3 1.5708 0 0</pose><geometry><cylinder><radius>0.05</radius><length>1.5</length></cylinder></geometry></collision>
+        <visual name="crossbar_visual"><pose>0 0 3 1.5708 0 0</pose><geometry><cylinder><radius>0.05</radius><length>1.5</length></cylinder></geometry><material><ambient>0.95 0.55 0.1 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Instrument package hanging on a line at (0, -4), 1.5 m deep -->
+    <model name="instrument_package">
+      <static>true</static>
+      <pose>0 -4 -1.5 0 0 0</pose>
+      <link name="package">
+        <collision name="box_collision"><geometry><box><size>0.5 0.5 0.5</size></box></geometry></collision>
+        <visual name="box_visual">
+          <geometry><box><size>0.5 0.5 0.5</size></box></geometry>
+          <material><ambient>0.95 0.8 0.1 1</ambient><diffuse>0.95 0.8 0.1 1</diffuse></material>
+        </visual>
+        <collision name="line_collision"><pose>0 0 0.875 0 0 0</pose><geometry><cylinder><radius>0.01</radius><length>1.25</length></cylinder></geometry></collision>
+        <visual name="line_visual">
+          <pose>0 0 0.875 0 0 0</pose>
+          <geometry><cylinder><radius>0.01</radius><length>1.25</length></cylinder></geometry>
+          <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Net wall, like the side of an aquaculture pen: floor to surface along x = -7, from y = -0.5
+         to the north wall. The only way past is around its south end, which the around_the_net
+         mission must find. -->
+    <model name="net_wall">
+      <static>true</static>
+      <pose>-7 2.75 -2 0 0 0</pose>
+      <link name="net">
+        <collision name="net_collision"><geometry><box><size>0.1 6.5 4</size></box></geometry></collision>
+        <visual name="net_visual">
+          <geometry><box><size>0.1 6.5 4</size></box></geometry>
+          <material><ambient>0.15 0.4 0.25 1</ambient><diffuse>0.15 0.4 0.25 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

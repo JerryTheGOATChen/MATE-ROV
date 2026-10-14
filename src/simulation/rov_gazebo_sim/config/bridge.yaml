@@ -1,0 +1,46 @@
+---
+# Topics bridged between Gazebo and ROS (ros_gz_bridge). The ROS side matches the action module's
+# vehicle interface: Nav2's stamped cmd_vel goes straight to the vehicle, and the sonar arrives as
+# 3D points.
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/model/rov/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/TwistStamped"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/sonar/points"
+  gz_topic_name: "/rov/sonar/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/sensors/imu"
+  gz_topic_name: "/rov/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/sensors/dvl"
+  gz_topic_name: "/model/rov/dvl"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.OdometryWithCovariance"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/sensors/depth"
+  gz_topic_name: "/model/rov/depth"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.OdometryWithCovariance"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/sim/ground_truth"
+  gz_topic_name: "/model/rov/ground_truth"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS

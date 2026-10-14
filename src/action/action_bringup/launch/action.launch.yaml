@@ -1,0 +1,43 @@
+---
+# action.launch.yaml
+# Entry point for the action container (see modules/docker-compose.yaml).
+
+launch:
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection
+
+  # Navigation: Nav2 with the ROV's 3D plugins. Nav2 manages its own lifecycle (see nav2.launch.yaml).
+  # The group keeps Nav2's launch arguments, such as params_file, from leaking into launch files that
+  # include this one, because includes do not scope their arguments.
+  - group:
+      children:
+        - include:
+            file: "$(find-pkg-share action_bringup)/launch/nav2.launch.yaml"
+            arg:
+              - name: autostart
+                value: $(var autostart)
+
+  # Lifecycle Manager: add a node_names parameter listing this module's lifecycle nodes. The included Nav2 launch
+  # file runs its own manager.
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "action_lifecycle_manager"
+      namespace: "action"
+      output: "screen"
+      param:
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)

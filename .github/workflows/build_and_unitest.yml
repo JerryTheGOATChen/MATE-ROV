@@ -1,0 +1,121 @@
+---
+name: Build and Test Monorepo
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# GITHUB_TOKEN needs packages:write to push images to this repo's ghcr.io namespace
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  setup-environment:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+
+    outputs:
+      docker_matrix: ${{ steps.docker-context.outputs.docker_matrix }}
+      registry: ${{ steps.docker-context.outputs.registry }}
+      repository: ${{ steps.docker-context.outputs.repository }}
+      source_branch: ${{ steps.github-context.outputs.source_branch }}
+      target_branch: ${{ steps.github-context.outputs.target_branch }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Get Module Changes
+        id: get-module-changes
+        uses: "./.github/templates/check_src_changes"
+
+      - name: Generate Docker Context
+        id: docker-context
+        uses: "./.github/templates/docker_context"
+        with:
+          modified_modules: ${{ steps.get-module-changes.outputs.modified_modules }}
+
+      - name: Generate GitHub Context
+        id: github-context
+        uses: "./.github/templates/github_context"
+
+  build-and-unittest:
+    name: Build/Test
+    runs-on: ubuntu-latest
+    needs: setup-environment
+
+    env:
+      DOCKER_REGISTRY: ${{ needs.setup-environment.outputs.registry }}
+      DOCKER_REPOSITORY: ${{ needs.setup-environment.outputs.repository }}
+      SOURCE_BRANCH: ${{ needs.setup-environment.outputs.source_branch }}
+      TARGET_BRANCH: ${{ needs.setup-environment.outputs.target_branch }}
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup-environment.outputs.docker_matrix) }}
+
+    concurrency:
+      group: ${{ matrix.module }}-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # GitHub-hosted runners have ~14GB free; the CUDA perception image needs more.
+      # Remove preinstalled toolchains the build never uses (~30GB).
+      - name: Free Disk Space
+        if: ${{ matrix.module == 'perception' }}
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/local/share/powershell \
+            /usr/share/swift /usr/local/julia* /opt/az /usr/local/share/chromium
+          sudo docker image prune --all --force
+          df -h /
+        shell: bash
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        id: buildx
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Module to Build
+        run: |
+          # Create watod config to build only this module
+          # Watod will source this file and setup the environment when it runs
+          echo "ACTIVE_MODULES=${{ matrix.module }}" > watod-config.local.sh
+        shell: bash
+
+      - name: Build and Test Module with Watod
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_BAKE: true
+        run: |
+          if [[ "${{ matrix.module }}" == "infrastructure" ]]; then
+            echo "Infrastructure module: building only (no tests)"
+            ./watod build
+          else
+            echo "Testing module: ${{ matrix.module }}"
+            ./watod test
+          fi
+
+  confirm-build-and-unittest-complete:
+    name: Confirm Build and Unit Tests Completed
+    needs: build-and-unittest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ending
+        run: |
+          echo "::notice:: All builds and unit tests completed!"

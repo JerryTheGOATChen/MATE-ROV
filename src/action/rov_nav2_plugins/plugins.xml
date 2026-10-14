@@ -1,0 +1,14 @@
+<library path="rov_nav2_plugins">
+  <class type="rov_nav2_plugins::CostmapPlanner3D" base_class_type="nav2_core::GlobalPlanner">
+    <description>Routes around the costmap's obstacles with a stock 2D planner, adding depth and yaw.</description>
+  </class>
+  <class type="rov_nav2_plugins::PurePursuitController3D" base_class_type="nav2_core::Controller">
+    <description>3D pure pursuit for a holonomic ROV (x, y, z, yaw) with per-axis velocity and acceleration limits.</description>
+  </class>
+  <class type="rov_nav2_plugins::GoalChecker3D" base_class_type="nav2_core::GoalChecker">
+    <description>Goal is reached when the horizontal, vertical and yaw errors are all within tolerance.</description>
+  </class>
+  <class type="rov_nav2_plugins::ProgressChecker3D" base_class_type="nav2_core::ProgressChecker">
+    <description>Progress is moving a 3D distance or turning an angle within a time allowance.</description>
+  </class>
+</library>

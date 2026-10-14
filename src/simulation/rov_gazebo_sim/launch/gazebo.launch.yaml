@@ -1,0 +1,92 @@
+---
+# gazebo.launch.yaml
+# The simulated ROV in place of the vehicle and its localization: the pool, the ROV and its sensors,
+# the bridge to ROS, and an EKF that publishes /odom and odom -> base_link.
+
+launch:
+  - arg:
+      name: gui
+      default: "false"
+      description: Show the Gazebo window
+
+  # Sensor noise, as Gaussian standard deviations. Off by default; set them to test localization.
+  - arg:
+      name: dvl_stddev
+      default: "0.0"
+      description: DVL velocity noise (m/s)
+
+  - arg:
+      name: depth_stddev
+      default: "0.0"
+      description: Depth sensor noise (m)
+
+  - arg:
+      name: gyro_stddev
+      default: "0.0"
+      description: IMU turn rate noise (rad/s)
+
+  - arg:
+      name: sonar_stddev
+      default: "0.0"
+      description: Sonar range noise (m)
+
+  - executable:
+      cmd: "gz sim -s -r --headless-rendering $(find-pkg-share rov_gazebo_sim)/worlds/mate_pool.sdf"
+      name: gz_server
+      output: screen
+
+  - executable:
+      cmd: "gz sim -g"
+      name: gz_gui
+      if: $(var gui)
+
+  # Its own group, because includes leak their launch arguments
+  - group:
+      children:
+        - include:
+            file: "$(find-pkg-share ros_gz_sim)/launch/gz_spawn_model.launch.py"
+            arg:
+              - name: world
+                value: mate_pool
+              - name: entity_name
+                value: rov
+              - name: z
+                value: "-0.3"
+              - name: model_string
+                value: "$(command 'xacro $(find-pkg-share rov_gazebo_sim)/models/rov.sdf.xacro dvl_stddev:=$(var dvl_stddev) depth_stddev:=$(var depth_stddev) gyro_stddev:=$(var gyro_stddev) sonar_stddev:=$(var sonar_stddev)')"
+
+  - node:
+      pkg: "ros_gz_bridge"
+      exec: "parameter_bridge"
+      name: "ros_gz_bridge"
+      output: "screen"
+      param:
+        - name: config_file
+          value: "$(find-pkg-share rov_gazebo_sim)/config/bridge.yaml"
+
+  - node:
+      pkg: "robot_localization"
+      exec: "ekf_node"
+      name: "ekf_filter_node"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share rov_gazebo_sim)/config/ekf.yaml"
+        - name: use_sim_time
+          value: true
+      remap:
+        - from: odometry/filtered
+          to: /odom
+
+  # Odometry is the only position source, so localization is the identity map -> odom transform
+  - node:
+      pkg: "tf2_ros"
+      exec: "static_transform_publisher"
+      name: "map_to_odom"
+      args: "--frame-id map --child-frame-id odom"
+
+  # Must match the sonar's pose in models/rov.sdf.xacro
+  - node:
+      pkg: "tf2_ros"
+      exec: "static_transform_publisher"
+      name: "base_link_to_sonar_link"
+      args: "--x 0.25 --frame-id base_link --child-frame-id sonar_link"

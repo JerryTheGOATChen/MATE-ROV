@@ -1,0 +1,24 @@
+__pycache__/
+code_server_config/*/extensions
+code_server_config/*/start_code_server.sh
+*.pyc
+*.swp
+.env
+.vscode/
+.claude/*
+!.claude/CLAUDE.md
+ssh_config/
+.ruff_cache/
+
+watod-config.local.sh
+
+bags/
+build/
+install/
+log/
+external/
+weights/
+models/
+# The Gazebo sim's vehicle model, not ML weights
+!src/simulation/rov_gazebo_sim/models/
+maps/

@@ -1,0 +1,57 @@
+---
+# Acceptance missions for Nav2 on the simulated ROV. They run in order, each starting where the
+# previous one ended; the simulator starts at the surface at the origin. Run them with:
+#
+#   ros2 run rov_mission_runner mission_runner \
+#     $(ros2 pkg prefix --share rov_kinematic_sim)/missions/sim_acceptance.yaml
+#
+# The criteria are explained in rov_kinematic_sim/README.md.
+
+frame_id: map
+
+defaults:
+  timeout_s: 30
+  xy_tolerance_m: 0.25
+  z_tolerance_m: 0.2
+  yaw_tolerance_deg: 10
+  max_path_deviation_m: 0.35
+  # The controller's limits in action_bringup/config/nav2.yaml: commands must never exceed them
+  max_speed: {x: 0.5, y: 0.3, z: 0.3, yaw: 0.6}
+
+missions:
+  # Straight down from the surface: depth control, and 3D progress checking
+  - name: dive
+    waypoints:
+      - {x: 0.0, y: 0.0, z: -2.0, yaw_deg: 0}
+
+  # Climb, move diagonally and turn, all at once
+  - name: transit_and_turn
+    waypoints:
+      - {x: 3.0, y: 2.0, z: -1.5, yaw_deg: 90}
+
+  # Lawnmower survey through waypoints at two depths, facing along each leg, without stopping
+  - name: survey
+    criteria: {timeout_s: 60}
+    waypoints:
+      - {x: 3.0, y: 4.0, z: -1.5, yaw_deg: 90}
+      - {x: 1.0, y: 4.0, z: -1.5, yaw_deg: 180}
+      - {x: 1.0, y: 2.0, z: -2.5, yaw_deg: -90}
+      - {x: 3.0, y: 2.0, z: -2.5, yaw_deg: 0}
+
+  # Back to the start and up to the surface
+  - name: return_and_surface
+    waypoints:
+      - {x: 0.0, y: 0.0, z: 0.0, yaw_deg: 0}
+
+  # A goal above the surface cannot be reached: navigation must give up rather than hang
+  - name: unreachable_goal_fails
+    expect: failed
+    waypoints:
+      - {x: 0.0, y: 0.0, z: 1.0, yaw_deg: 0}
+
+  # Canceling navigation stops the vehicle
+  - name: cancel_stops_vehicle
+    expect: canceled
+    cancel_after_s: 3.0
+    waypoints:
+      - {x: 6.0, y: 0.0, z: -1.0, yaw_deg: 0}

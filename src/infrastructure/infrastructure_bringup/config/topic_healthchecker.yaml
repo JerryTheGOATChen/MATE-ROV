@@ -1,0 +1,10 @@
+---
+/**/topic_healthchecker:
+  ros__parameters:
+    http_port: 8080
+    stale_timeout: 5.0
+    window_size: 50
+    check_period: 2.0
+    # Topics to monitor for liveness and rate. Replace with your robot's topics.
+    topics:
+      - /rosout
