@@ -1,43 +1,22 @@
----
 # action.launch.yaml
 # Entry point for the action container (see modules/docker-compose.yaml).
+#
+# Halloween hackathon: runs the haunted house and the ghost's brain together. To iterate on the
+# brain, run haunted_house.launch.yaml and ghost_brain.launch.yaml in separate shells instead, so
+# you can restart the brain without restarting the house.
 
 launch:
   - arg:
-      name: autostart
-      default: "true"
-      description: Automatically configure and activate managed nodes
+      name: house_file
+      default: "$(find-pkg-share haunted_house)/config/haunted_house.yaml"
+      description: The house layout, people, candies and rules
 
-  - arg:
-      name: bond_enabled
-      default: "false"
-      description: Enable bond-based crash detection
+  - include:
+      file: "$(find-pkg-share haunted_house)/launch/haunted_house.launch.yaml"
+      arg:
+        - name: house_file
+          value: $(var house_file)
 
-  # Navigation: Nav2 with the ROV's 3D plugins. Nav2 manages its own lifecycle (see nav2.launch.yaml).
-  # The group keeps Nav2's launch arguments, such as params_file, from leaking into launch files that
-  # include this one, because includes do not scope their arguments.
-  - group:
-      children:
-        - include:
-            file: "$(find-pkg-share action_bringup)/launch/nav2.launch.yaml"
-            arg:
-              - name: autostart
-                value: $(var autostart)
-
-  # Lifecycle Manager: add a node_names parameter listing this module's lifecycle nodes. The included Nav2 launch
-  # file runs its own manager.
-  - node:
-      pkg: "wato_lifecycle_manager"
-      exec: "wato_lifecycle_manager_node"
-      name: "action_lifecycle_manager"
-      namespace: "action"
-      output: "screen"
-      param:
-        - name: autostart
-          value: $(var autostart)
-        - name: transition_timeout_s
-          value: 10.0
-        - name: bond_timeout_s
-          value: 4.0
-        - name: bond_enabled
-          value: $(var bond_enabled)
+  # The brain runs under its own lifecycle manager, which configures and activates it
+  - include:
+      file: "$(find-pkg-share ghost_brain)/launch/ghost_brain.launch.yaml"

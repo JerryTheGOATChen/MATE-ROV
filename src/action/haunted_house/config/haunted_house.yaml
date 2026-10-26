@@ -1,0 +1,132 @@
+---
+# The haunted house. Everything is in the map frame, in meters: x east, y north, z up from the floor.
+#
+# The ghost is never told where anyone is: it has to find people and candy with its camera. To
+# judge a competition, run a house file nobody has seen with `house_file:=<file>`.
+
+rules:
+  duration_s: 120
+  start_delay_s: 3
+  # How close the ghost's center must come to a candy, or to a person's head
+  catch_radius_m: 0.5
+  candy_points: 1
+  person_points: 10
+  # Every game, each candy moves up to this far from its spot below, in x and y
+  candy_jitter_m: 0.25
+  # Every game, each person starts somewhere random along their loop
+  random_people_start: true
+
+ghost:
+  # x, y, z and yaw (rad): the middle of the grand hall's south end, facing north
+  start: [0.0, -5.3, 1.5, 1.5708]
+  # The same response and limits as the ROV
+  response_time_s: 0.3
+  max_linear_speed: [1.0, 0.6, 0.6]
+  max_yaw_rate: 1.5
+  # The ghost is a sphere this size as far as walls and furniture are concerned
+  radius_m: 0.3
+
+house:
+  # 16 x 12 m and 3 m tall. A grand hall runs down the middle, with two rooms on each side
+  x_range: [-8.0, 8.0]
+  y_range: [-6.0, 6.0]
+  ceiling_z: 3.0
+
+  rooms:
+    - {name: Grand hall, at: [0.0, -2.5]}
+    - {name: Library, at: [-5.5, -5.4]}
+    - {name: Kitchen, at: [-5.5, 0.6]}
+    - {name: Ballroom, at: [5.5, -0.5]}
+    - {name: Nursery, at: [5.5, 1.6]}
+
+  # Walls run from the floor to the ceiling: [x min, y min, x max, y max]. Doors are 1.2 m gaps
+  walls:
+    # Outside
+    - [-8.1, -6.1, 8.1, -5.9]
+    - [-8.1, 5.9, 8.1, 6.1]
+    - [-8.1, -6.1, -7.9, 6.1]
+    - [7.9, -6.1, 8.1, 6.1]
+    # Grand hall's west side, with doors to the library (y -3.5 to -2.3) and the kitchen (y 2.3 to 3.5)
+    - [-3.1, -6.0, -2.9, -3.5]
+    - [-3.1, -2.3, -2.9, 2.3]
+    - [-3.1, 3.5, -2.9, 6.0]
+    # Grand hall's east side, with doors to the ballroom (y -1.5 to -0.3) and the nursery (y 3.5 to 4.7)
+    - [2.9, -6.0, 3.1, -1.5]
+    - [2.9, -0.3, 3.1, 3.5]
+    - [2.9, 4.7, 3.1, 6.0]
+    # Library and kitchen, with a door between them (x -6.2 to -5.0)
+    - [-8.0, -0.1, -6.2, 0.1]
+    - [-5.0, -0.1, -3.0, 0.1]
+    # Ballroom and nursery, with a door between them (x 5.0 to 6.2)
+    - [3.0, 0.9, 5.0, 1.1]
+    - [6.2, 0.9, 8.0, 1.1]
+
+  # Furniture does not reach the ceiling, so the ghost can fly over it, or under what hangs down
+  furniture:
+    - {name: Dining table, min: [-1.0, -0.5, 0.0], max: [1.0, 0.5, 0.8]}
+    - {name: Chandelier, min: [-0.4, -0.4, 2.2], max: [0.4, 0.4, 3.0]}
+    - {name: Coffin, min: [-2.5, -5.5, 0.0], max: [-1.5, -4.9, 0.6]}
+    - {name: Grandfather clock, min: [2.4, 5.4, 0.0], max: [2.8, 5.8, 2.2]}
+    - {name: Bookcase, min: [-7.8, -5.5, 0.0], max: [-7.4, -1.0, 2.2]}
+    - {name: Bookshelf, min: [-5.5, -4.5, 0.0], max: [-5.1, -1.5, 2.0]}
+    - {name: Kitchen counter, min: [-7.8, 5.2, 0.0], max: [-4.5, 5.8, 0.9]}
+    - {name: Kitchen island, min: [-6.0, 2.0, 0.0], max: [-4.8, 3.0, 0.9]}
+    - {name: Piano, min: [5.5, -5.5, 0.0], max: [7.0, -4.5, 1.0]}
+    - {name: Ballroom chandelier, min: [5.0, -2.5, 1.8], max: [6.0, -1.5, 3.0]}
+    - {name: Crib, min: [6.5, 4.8, 0.0], max: [7.7, 5.8, 1.0]}
+
+# People walk their loops in straight lines at a steady speed, in the order of their waypoints.
+# head_z is the height of their head, where the ghost has to reach them.
+people:
+  - name: Tour guide
+    speed: 0.5
+    head_z: 1.6
+    path: [[-2.0, -4.0], [2.0, -4.0], [2.0, 4.0], [-2.0, 4.0]]
+  - name: Bookworm
+    speed: 0.35
+    head_z: 1.6
+    path: [[-6.5, -5.0], [-6.5, -1.0], [-4.0, -1.0], [-4.0, -5.0]]
+  - name: Chef
+    speed: 0.4
+    head_z: 1.7
+    path: [[-7.0, 1.0], [-3.8, 1.0], [-3.8, 4.5], [-7.0, 4.5]]
+  - name: Trick-or-treater
+    speed: 0.45
+    head_z: 1.1
+    path: [[0.0, -2.0], [2.5, -0.9], [4.5, -0.9], [5.6, 0.0], [5.6, 3.0], [4.0, 4.1], [2.5, 4.1], [0.0, 2.5], [-1.8, 1.0], [-1.8, -1.0]]
+  - name: Dancer
+    speed: 0.6
+    head_z: 1.6
+    path: [[4.0, -3.5], [7.2, -3.5], [7.2, 0.2], [4.0, 0.2]]
+  - name: Night nurse
+    speed: 0.3
+    head_z: 1.6
+    path: [[4.0, 2.0], [7.2, 2.0], [7.2, 4.0], [4.0, 4.4]]
+
+# Candies sit still: [x, y, z], moved a little every game. Some are on the floor, some on furniture, some up high
+candies:
+  # Grand hall
+  - [0.0, 0.0, 0.85]    # on the dining table
+  - [0.0, 0.0, 2.0]     # under the chandelier
+  - [-2.0, -5.2, 0.7]   # on the coffin
+  - [2.5, 5.5, 2.3]     # on top of the grandfather clock
+  - [-2.4, 4.5, 0.1]
+  # Library
+  - [-7.5, -3.0, 2.3]   # on top of the bookcase
+  - [-5.3, -3.0, 2.1]   # on top of the bookshelf
+  - [-7.0, -5.5, 0.1]
+  - [-4.0, -0.5, 1.2]
+  # Kitchen
+  - [-6.2, 5.5, 1.0]    # on the counter
+  - [-5.4, 2.5, 1.0]    # on the island
+  - [-7.5, 0.5, 0.1]
+  - [-3.5, 5.5, 2.5]
+  # Ballroom
+  - [6.2, -5.0, 1.1]    # on the piano
+  - [5.5, -2.0, 1.6]    # under the chandelier
+  - [7.5, -5.5, 0.1]
+  - [4.0, 0.5, 2.6]
+  # Nursery
+  - [7.1, 5.3, 1.1]     # in the crib
+  - [4.0, 5.6, 0.1]
+  - [5.6, 1.5, 2.5]

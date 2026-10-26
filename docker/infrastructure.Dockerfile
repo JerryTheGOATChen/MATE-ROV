@@ -16,6 +16,7 @@ COPY src/wato_test wato_test
 
 # Copy in every msgs package so Foxglove and ros2 bag can decode them
 COPY src/interfacing/pid_msgs pid_msgs
+COPY src/action/haunted_house_msgs haunted_house_msgs
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible

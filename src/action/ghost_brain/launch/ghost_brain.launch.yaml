@@ -1,0 +1,30 @@
+# ghost_brain.launch.yaml
+# The ghost's brain on its own, with a lifecycle manager that configures and activates it.
+# Relaunch this after every rebuild; the haunted house can keep running (reset it to replay).
+
+launch:
+  - arg:
+      name: params_file
+      default: "$(find-pkg-share ghost_brain)/config/ghost_brain.yaml"
+      description: The ghost_brain parameters
+
+  - node:
+      pkg: "ghost_brain"
+      exec: "ghost_brain_node"
+      name: "ghost_brain"
+      output: "screen"
+      param:
+        - from: $(var params_file)
+
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "ghost_brain_lifecycle_manager"
+      output: "screen"
+      param:
+        - name: node_names
+          value: ["ghost_brain"]
+        - name: autostart
+          value: true
+        - name: bond_enabled
+          value: false

@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>ghost_brain</name>
+  <version>0.1.0</version>
+  <description>Halloween hackathon starter: the ghost's localization, tracking, target picking, path planner and motion controller</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>haunted_house_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>vision_msgs</depend>
+  <depend>visualization_msgs</depend>
+
+  <exec_depend>haunted_house</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+  <exec_depend>wato_lifecycle_manager</exec_depend>
+
+  <test_depend>lifecycle_msgs</test_depend>
+  <test_depend>wato_test</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <rclcpp_components/>
+  </export>
+</package>

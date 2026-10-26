@@ -1,0 +1,32 @@
+# haunted_house.launch.yaml
+# The haunted house on its own: the game, the people, the candies, the ghost's body and its sensors.
+# Something else has to drive the ghost on /cmd_vel; see ghost_brain.
+
+launch:
+  - arg:
+      name: house_file
+      default: "$(find-pkg-share haunted_house)/config/haunted_house.yaml"
+      description: The house layout, people, candies and rules
+
+  - arg:
+      name: draw_ghost
+      default: "true"
+      description: Draw the default ghost. Turn off to draw your own
+
+  - arg:
+      name: seed
+      default: "-1"
+      description: Random seed for the shuffles and sensor noise. Negative for a different game every reset
+
+  - node:
+      pkg: "haunted_house"
+      exec: "haunted_house_node"
+      name: "haunted_house"
+      output: "screen"
+      param:
+        - name: house_file
+          value: $(var house_file)
+        - name: draw_ghost
+          value: $(var draw_ghost)
+        - name: seed
+          value: $(var seed)

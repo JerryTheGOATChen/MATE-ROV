@@ -5,9 +5,11 @@ on:
   push:
     branches:
       - main
+      - hackathon/halloween
   pull_request:
     branches:
       - main
+      - hackathon/halloween
 
 # GITHUB_TOKEN needs packages:write to push images to this repo's ghcr.io namespace
 permissions:

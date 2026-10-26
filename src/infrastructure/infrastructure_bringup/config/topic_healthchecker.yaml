@@ -8,3 +8,10 @@
     # Topics to monitor for liveness and rate. Replace with your robot's topics.
     topics:
       - /rosout
+      - /cmd_vel
+      - /ghost/velocity
+      - /ghost/imu
+      - /sonar/scan
+      - /camera/depth
+      - /camera/detections
+      - /haunted_house/state

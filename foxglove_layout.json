@@ -1,0 +1,315 @@
+{
+  "configById": {
+    "3D!main": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 24,
+        "phi": 55,
+        "thetaOffset": -90,
+        "targetOffset": [
+          0,
+          -1.5,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.1,
+        "far": 500
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {
+        "enableStats": false,
+        "backgroundColor": "#0b0710",
+        "transforms": {
+          "showLabel": false,
+          "axisScale": 0.4
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/ghost_brain/markers": {
+          "visible": true
+        },
+        "/ghost_brain/path": {
+          "visible": true,
+          "lineWidth": 0.06,
+          "gradient": [
+            "#39ff14ff",
+            "#39ff14ff"
+          ]
+        },
+        "/map": {
+          "visible": false,
+          "alpha": 0.5
+        },
+        "/spectator/markers": {
+          "visible": true
+        },
+        "/sonar/scan": {
+          "visible": true,
+          "pointSize": 4,
+          "colorMode": "flat",
+          "flatColor": "#00e5ffff"
+        },
+        "/ghost_brain/pose": {
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            0.6,
+            0.12,
+            0.12
+          ],
+          "color": "#39ff14ff"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "layerId": "foxglove.Grid"
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose"
+      },
+      "imageMode": {}
+    },
+    "3D!topdown": {
+      "cameraState": {
+        "perspective": false,
+        "distance": 20,
+        "phi": 0,
+        "thetaOffset": 0,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.1,
+        "far": 500
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {
+        "enableStats": false,
+        "backgroundColor": "#0b0710",
+        "transforms": {
+          "showLabel": false,
+          "axisScale": 0.4
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/ghost_brain/markers": {
+          "visible": true
+        },
+        "/ghost_brain/path": {
+          "visible": true,
+          "lineWidth": 0.08,
+          "gradient": [
+            "#39ff14ff",
+            "#39ff14ff"
+          ]
+        },
+        "/spectator/markers": {
+          "visible": true
+        },
+        "/sonar/scan": {
+          "visible": true,
+          "pointSize": 4,
+          "colorMode": "flat",
+          "flatColor": "#00e5ffff"
+        },
+        "/ghost_brain/pose": {
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            0.6,
+            0.12,
+            0.12
+          ],
+          "color": "#39ff14ff"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "layerId": "foxglove.Grid"
+        }
+      },
+      "imageMode": {}
+    },
+    "CallService!reset": {
+      "serviceName": "/haunted_house/reset",
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "buttonText": "New game",
+      "buttonTooltip": "Reset the haunted house and count down to a new game",
+      "editingMode": false
+    },
+    "Table!leaderboard": {
+      "topicPath": "/studio_script/leaderboard.attempts"
+    },
+    "RawMessages!state": {
+      "topicPath": "/haunted_house/state",
+      "diffTopicPath": "",
+      "diffMethod": "custom",
+      "diffEnabled": false,
+      "showFullMessageForDiff": false,
+      "fontSize": 13
+    },
+    "RosOut!log": {
+      "searchTerms": [],
+      "minLogLevel": 2
+    },
+    "RawMessages!status": {
+      "topicPath": "/studio_script/status.status",
+      "diffTopicPath": "",
+      "diffMethod": "custom",
+      "diffEnabled": false,
+      "showFullMessageForDiff": false,
+      "fontSize": 20
+    },
+    "Image!camera": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose"
+      },
+      "imageMode": {
+        "imageTopic": "/camera/depth",
+        "calibrationTopic": "/camera/camera_info",
+        "annotations": {
+          "/camera/detections_overlay": {
+            "visible": true
+          }
+        },
+        "colorMode": "colormap",
+        "colorMap": "turbo",
+        "minValue": 0,
+        "maxValue": 12
+      }
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {
+    "haunted-house-leaderboard": {
+      "name": "Leaderboard",
+      "sourceCode": "// Session leaderboard: remembers every game that finishes while this layout is open, and ranks\n// them. It starts empty again when you reload the layout or restart Foxglove.\n// A game you reset before the final whistle doesn't count.\nimport { Input } from \"./types\";\n\nexport const inputs = [\"/haunted_house/state\"];\nexport const output = \"/studio_script/leaderboard\";\n\ntype Attempt = {\n  rank: number;\n  score: number;\n  people_haunted: number;\n  candies_eaten: number;\n  bonks: number;\n  time_used_s: number;\n  finished_at: string;\n};\n\ntype Leaderboard = {\n  games_played: number;\n  best_score: number;\n  current_score: number;\n  attempts: Attempt[];\n};\n\ntype Result = {\n  score: number;\n  people_haunted: number;\n  candies_eaten: number;\n  bonks: number;\n  time_used_s: number;\n  finished_at: string;\n};\n\n// GameState phases, and the game's length in the house file\nconst RUNNING = 1;\nconst FINISHED = 2;\nconst DURATION_S = 120;\n// How many attempts to show\nconst TOP = 10;\n\nconst results: Result[] = [];\nlet lastPhase = -1;\n\nexport default function script(event: Input<\"/haunted_house/state\">): Leaderboard {\n  const state = event.message;\n\n  if (state.phase === FINISHED && lastPhase === RUNNING) {\n    const stamp = state.header.stamp.sec + state.header.stamp.nsec / 1e9;\n    results.push({\n      score: state.score,\n      people_haunted: state.people_haunted,\n      candies_eaten: state.candies_eaten,\n      bonks: state.bonks,\n      time_used_s: Math.round((DURATION_S - state.time_remaining_s) * 10) / 10,\n      finished_at: new Date(stamp * 1000).toLocaleTimeString(),\n    });\n  }\n  lastPhase = state.phase;\n\n  // Highest score first; fewer bonks breaks a tie\n  const ranked: Attempt[] = [...results]\n    .sort((a, b) => b.score - a.score || a.bonks - b.bonks)\n    .slice(0, TOP)\n    .map((r, i) => ({ rank: i + 1, ...r }));\n\n  return {\n    games_played: results.length,\n    best_score: ranked.length > 0 ? ranked[0].score : 0,\n    current_score: state.score,\n    attempts: ranked,\n  };\n}\n"
+    },
+    "haunted-house-status": {
+      "name": "Status",
+      "sourceCode": "// Game status: the clock while a game runs, and the final score once it's over.\nimport { Input } from \"./types\";\n\nexport const inputs = [\"/haunted_house/state\"];\nexport const output = \"/studio_script/status\";\n\ntype Status = {\n  status: string;\n};\n\n// GameState phases, and the game's length in the house file\nconst RUNNING = 1;\nconst FINISHED = 2;\nconst DURATION_S = 120;\n\nexport default function script(event: Input<\"/haunted_house/state\">): Status {\n  const state = event.message;\n  if (state.phase === FINISHED) {\n    return { status: `Game over - final score ${state.score}` };\n  }\n  // Before the clock starts, show the full game length\n  const remaining = state.phase === RUNNING ? state.time_remaining_s : DURATION_S;\n  const seconds = Math.ceil(remaining);\n  const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, \"0\")}`;\n  return { status: `Running - ${clock} left - score ${state.score}` };\n}\n"
+    }
+  },
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "splitPercentage": 66,
+    "first": {
+      "direction": "column",
+      "splitPercentage": 72,
+      "first": "3D!main",
+      "second": {
+        "direction": "row",
+        "splitPercentage": 40,
+        "first": "RosOut!log",
+        "second": "Image!camera"
+      }
+    },
+    "second": {
+      "direction": "column",
+      "splitPercentage": 12,
+      "first": {
+        "direction": "row",
+        "splitPercentage": 70,
+        "first": "RawMessages!status",
+        "second": "CallService!reset"
+      },
+      "second": {
+        "direction": "column",
+        "splitPercentage": 50,
+        "first": "3D!topdown",
+        "second": {
+          "direction": "column",
+          "splitPercentage": 68,
+          "first": "Table!leaderboard",
+          "second": "RawMessages!state"
+        }
+      }
+    }
+  }
+}

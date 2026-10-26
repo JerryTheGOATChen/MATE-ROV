@@ -15,13 +15,9 @@
   <exec_depend>ros2launch</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
 
-  <!-- Navigation -->
-  <exec_depend>nav2_bt_navigator</exec_depend>
-  <exec_depend>nav2_controller</exec_depend>
-  <exec_depend>nav2_lifecycle_manager</exec_depend>
-  <exec_depend>nav2_planner</exec_depend>
-  <exec_depend>rov_nav2_plugins</exec_depend>
-  <exec_depend>spatio_temporal_voxel_layer</exec_depend>
+  <!-- Halloween hackathon -->
+  <exec_depend>ghost_brain</exec_depend>
+  <exec_depend>haunted_house</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

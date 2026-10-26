@@ -1,5 +1,7 @@
 # WATonomous Monorepo Template
 
+> 🎃 **This is the `hackathon/halloween` branch.** Start with [HACKATHON.md](HACKATHON.md).
+
 A starting point for WATonomous robotics projects. It contains the infrastructure from [wato_monorepo](https://github.com/WATonomous/wato_monorepo) without any robot-specific code. That includes the `watod` CLI, multi-stage Docker builds, docker compose profiles, the Zenoh router, Foxglove bridge, log viewer, unit testing with `wato_test`, pre-commit, and CI.
 
 Every module builds, runs, and passes its tests out of the box. Each one contains a bringup package and a single example lifecycle node that you replace with real code.
@@ -12,7 +14,7 @@ Every module builds, runs, and passes its tests out of the box. Each one contain
 | `interfacing` | `interfacing_bringup` | Hardware drivers, sensors, CAN, actuation | `pid_msgs` |
 | `perception` | `perception_bringup` (CUDA) | Detection, tracking, sensor fusion | |
 | `world_modeling` | `world_modeling_bringup` | Localization, mapping, prediction | |
-| `action` | `action_bringup` | Planning and control | Nav2 with 3D plugins (`rov_nav2_plugins`) |
+| `action` | `action_bringup` | Planning and control | 🎃 On this branch: the [Haunted House Hackathon](HACKATHON.md) (`haunted_house`, `ghost_brain`, `haunted_house_msgs`) |
 
 The **log viewer** web UI runs next to infrastructure. It shows container logs and topic health from `topic_healthchecker`.
 

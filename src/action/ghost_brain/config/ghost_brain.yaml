@@ -1,0 +1,10 @@
+---
+ghost_brain:
+  ros__parameters:
+    # How often to send a velocity command
+    control_rate_hz: 20.0
+    # How often to plan again on the way, because people keep walking
+    replan_period_s: 0.5
+    # The house's frame, and the ghost's own frame, which commands are in
+    map_frame: map
+    base_frame: base_link
