@@ -15,6 +15,7 @@ Each plugin has a folder, the same under `src/`, `include/rov_nav2_plugins/` and
 | `controller/` | `pure_pursuit_controller_3d` | `controller_math`: `Pursuit`, the control law below; `PathTracker`, a path parameterized by arc length, which tracks the vehicle's progress and interpolates the pose any distance ahead; and the speed profile and limit helpers |
 | `goal_checker/` | `goal_checker_3d` | `pose4d` only |
 | `progress_checker/` | `progress_checker_3d` | `pose4d` only |
+| `costmap/` | `voxel_layer_3d` | `costmap_math`: `traverse()`, the 3D raytrace; `VoxelGrid3D`, occupancy with clearing and decay; `inflate()`, a 3D Euclidean distance transform turned into Nav2 costs; and `CostVolume`, the result |
 
 The math is plain C++ with Eigen, independent of Nav2 and ROS communication, so it is fast to test exhaustively. The plugin classes adapt it to Nav2: they read parameters, handle frames and TF, convert messages, and report errors as Nav2 exceptions. Keep logic out of them. [PLUGINS.md](PLUGINS.md) covers when Nav2 calls them.
 
@@ -49,7 +50,7 @@ colcon test-result --verbose
 ```
 
 - The algorithm tests include closed-loop runs of `Pursuit` against a simulated vehicle, both ideal and with response lag and a water current. Their thresholds sit just above measured performance, so a regression in tracking or arrival time fails them.
-- The plugin tests drive each plugin through its Nav2 interface. `test_plugin_loading` loads each plugin by name through pluginlib, as the Nav2 servers do, which catches mistakes in `plugins.xml` and the export macros.
+- The plugin tests drive each plugin through its Nav2 interface. `test_voxel_layer_3d` publishes a cloud to the layer inside a `LayeredCostmap`. `test_plugin_loading` loads each plugin by name through pluginlib, as the Nav2 servers do, which catches mistakes in `plugins.xml`, `costmap_plugins.xml` and the export macros.
 - There is no end-to-end test through the real Nav2 servers in the repository yet.
 
 ## Known limitations

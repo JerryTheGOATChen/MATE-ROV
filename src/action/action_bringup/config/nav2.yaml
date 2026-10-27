@@ -108,36 +108,19 @@ global_costmap:
       publish_frequency: 1.0
       always_send_full_costmap: true  # Foxglove does not apply partial costmap updates
       track_unknown_space: false
-      plugins: ["stvl_layer", "inflation_layer"]
-      stvl_layer:
-        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
-        voxel_size: 0.1  # m, the costmap's resolution
-        decay_model: 0  # linear
-        # s, how long an obstacle out of the sonar's view is remembered. The sonar looks only ahead,
-        # but the vehicle also moves sideways and backward, so it must remember what it has passed.
-        # Water the sonar sees without a return clears much sooner (decay_acceleration).
-        voxel_decay: 60.0
-        publish_voxel_map: true
-        observation_sources: sonar
-        sonar:
-          topic: /sonar/points
-          data_type: "PointCloud2"
-          marking: true
-          clearing: true
-          obstacle_range: 8.0  # m
-          observation_persistence: 0.5  # s, one costmap update, so every sonar frame is marked
-          # z in the map frame, which is negative underwater. Returns within 0.2 m of the floor
-          # are the floor itself.
-          min_obstacle_height: -3.8
-          max_obstacle_height: 0.0
-          # The sonar's field of view, where voxels without a return clear faster. Model 1 (3D
-          # lidar) takes x forward, as the sonar's frame does.
-          model_type: 1
-          horizontal_fov_angle: 1.57  # rad
-          vertical_fov_angle: 0.70  # rad
-          min_z: 0.3  # m, horizontal range
-          max_z: 10.0  # m
-          decay_acceleration: 15.0  # 1/s^2
+      plugins: ["voxel_layer_3d", "inflation_layer"]
+      voxel_layer_3d:
+        plugin: "rov_nav2_plugins::VoxelLayer3D"
+        topic: /sonar/points
+        min_z: -4.4 # relative floor depth 
+        max_z: 0.0 # relative water surface
+        obstacle_range: 8.0
+        voxel_decay: 200.0 # in seconds, how long an obstacle out of the sonar's view is remembered
+        robot_half_height: 0.2 # m, half of vehicle's height
+        inflation_radius: 0.2 
+        cost_scaling_facto: 3.0
+        transform_tolerance: 0.1  # s, for the sonar's frame to map
+        publish_voxel_costs: true
       # Keeps the route well clear of obstacles: pure pursuit cuts inside the route's corners
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"

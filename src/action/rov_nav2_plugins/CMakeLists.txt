@@ -32,6 +32,7 @@ find_package(nav_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -43,6 +44,8 @@ add_library(${PROJECT_NAME} SHARED
   src/common/pose4d.cpp
   src/controller/controller_math.cpp
   src/controller/pure_pursuit_controller_3d.cpp
+  src/costmap/costmap_math.cpp
+  src/costmap/voxel_layer_3d.cpp
   src/goal_checker/goal_checker_3d.cpp
   src/planner/costmap_planner_3d.cpp
   src/planner/planner_math.cpp
@@ -69,6 +72,7 @@ target_link_libraries(${PROJECT_NAME}
     tf2_ros::tf2_ros
     ${geometry_msgs_TARGETS}
     ${nav_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
   PRIVATE
     angles::angles
     tf2::tf2
@@ -76,6 +80,8 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 pluginlib_export_plugin_description_file(nav2_core plugins.xml)
+# Costmap layers load through nav2_costmap_2d rather than nav2_core, so they need a file of their own
+pluginlib_export_plugin_description_file(nav2_costmap_2d costmap_plugins.xml)
 
 # ----------------------------
 # Install
@@ -97,16 +103,18 @@ if(BUILD_TESTING)
 
   # Algorithms, independent of Nav2 and ROS communication
   add_wato_test(test_controller_math test/controller/test_controller_math.cpp LIBRARIES ${PROJECT_NAME})
+  add_wato_test(test_costmap_math test/costmap/test_costmap_math.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_planner_math test/planner/test_planner_math.cpp LIBRARIES ${PROJECT_NAME})
 
   # Nav2 plugin interfaces
   add_wato_test(test_costmap_planner_3d test/planner/test_costmap_planner_3d.cpp LIBRARIES ${PROJECT_NAME})
+  add_wato_test(test_voxel_layer_3d test/costmap/test_voxel_layer_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_pure_pursuit_controller_3d test/controller/test_pure_pursuit_controller_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_goal_checker_3d test/goal_checker/test_goal_checker_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_progress_checker_3d test/progress_checker/test_progress_checker_3d.cpp LIBRARIES ${PROJECT_NAME})
 
   # Loads every plugin by name through pluginlib, as the Nav2 servers do. Deliberately not linked
-  # against the plugin library, so it checks plugins.xml and the export macros.
+  # against the plugin library, so it checks the plugin XML files and the export macros.
   add_wato_test(test_plugin_loading test/test_plugin_loading.cpp
     LIBRARIES
       nav2_costmap_2d::nav2_costmap_2d_core

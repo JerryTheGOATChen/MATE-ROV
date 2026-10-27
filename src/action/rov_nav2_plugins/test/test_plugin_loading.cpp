@@ -20,16 +20,17 @@
 #include "nav2_core/global_planner.hpp"
 #include "nav2_core/goal_checker.hpp"
 #include "nav2_core/progress_checker.hpp"
+#include "nav2_costmap_2d/layer.hpp"
 #include "pluginlib/class_loader.hpp"
 
 namespace
 {
 
-/// Load `plugin` the way the Nav2 servers do: by name, through the ament index.
+/// Load `plugin` the way the Nav2 servers do: by name, through the ament index entries of `package`.
 template <typename Base>
-bool loads(const std::string & base_class, const std::string & plugin)
+bool loads(const std::string & package, const std::string & base_class, const std::string & plugin)
 {
-  pluginlib::ClassLoader<Base> loader("nav2_core", base_class);
+  pluginlib::ClassLoader<Base> loader(package, base_class);
   return loader.createUniqueInstance(plugin) != nullptr;
 }
 
@@ -37,8 +38,12 @@ bool loads(const std::string & base_class, const std::string & plugin)
 
 TEST_CASE("Nav2 can load every plugin by name", "[plugins]")
 {
-  REQUIRE(loads<nav2_core::GlobalPlanner>("nav2_core::GlobalPlanner", "rov_nav2_plugins::CostmapPlanner3D"));
-  REQUIRE(loads<nav2_core::Controller>("nav2_core::Controller", "rov_nav2_plugins::PurePursuitController3D"));
-  REQUIRE(loads<nav2_core::GoalChecker>("nav2_core::GoalChecker", "rov_nav2_plugins::GoalChecker3D"));
-  REQUIRE(loads<nav2_core::ProgressChecker>("nav2_core::ProgressChecker", "rov_nav2_plugins::ProgressChecker3D"));
+  REQUIRE(
+    loads<nav2_core::GlobalPlanner>("nav2_core", "nav2_core::GlobalPlanner", "rov_nav2_plugins::CostmapPlanner3D"));
+  REQUIRE(
+    loads<nav2_core::Controller>("nav2_core", "nav2_core::Controller", "rov_nav2_plugins::PurePursuitController3D"));
+  REQUIRE(loads<nav2_core::GoalChecker>("nav2_core", "nav2_core::GoalChecker", "rov_nav2_plugins::GoalChecker3D"));
+  REQUIRE(loads<nav2_core::ProgressChecker>(
+    "nav2_core", "nav2_core::ProgressChecker", "rov_nav2_plugins::ProgressChecker3D"));
+  REQUIRE(loads<nav2_costmap_2d::Layer>("nav2_costmap_2d", "nav2_costmap_2d::Layer", "rov_nav2_plugins::VoxelLayer3D"));
 }
