@@ -41,11 +41,21 @@ class Waypoint:
 
 @dataclasses.dataclass(frozen=True)
 class Obstacle:
-    """A vertical cylinder, spanning every depth, that the vehicle's center must stay out of."""
+    """A vertical cylinder that the vehicle's center must stay out of, spanning every depth unless bounded."""
 
     x: float
     y: float
     radius: float  # m, the obstacle's radius plus the vehicle's half-width
+    z_min: float = -math.inf  # m, the obstacle's bottom minus the vehicle's half-height
+    z_max: float = math.inf  # m, the obstacle's top plus the vehicle's half-height
+
+    def clearance(self, x: float, y: float, z: float) -> float:
+        """How far the point (x, y, z) is outside the cylinder; negative inside."""
+        horizontal = math.hypot(x - self.x, y - self.y) - self.radius
+        vertical = max(self.z_min - z, z - self.z_max)
+        if horizontal > 0.0 and vertical > 0.0:
+            return math.hypot(horizontal, vertical)
+        return max(horizontal, vertical)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -184,12 +194,19 @@ def _parse_waypoint(entry: object, mission_name: str) -> Waypoint:
 
 def _parse_obstacle(entry: object, mission_name: str) -> Obstacle:
     context = f"{mission_name}: obstacle"
-    entry = _mapping(entry, context, required={"x", "y", "radius_m"})
-    return Obstacle(
+    entry = _mapping(
+        entry, context, required={"x", "y", "radius_m"}, optional={"z_min", "z_max"}
+    )
+    obstacle = Obstacle(
         x=_number(entry["x"], f"{context} x"),
         y=_number(entry["y"], f"{context} y"),
         radius=_positive(entry["radius_m"], f"{context} radius_m"),
+        z_min=_number(entry.get("z_min", -math.inf), f"{context} z_min"),
+        z_max=_number(entry.get("z_max", math.inf), f"{context} z_max"),
     )
+    if obstacle.z_min >= obstacle.z_max:
+        raise MissionError(f"{context} z_min must be below z_max")
+    return obstacle
 
 
 def _parse_criteria(values: dict, mission_name: str) -> Criteria:

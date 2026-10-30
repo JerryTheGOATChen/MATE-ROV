@@ -30,8 +30,8 @@ from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch_ros.actions import Node
 
-# Generous: the missions take about 90 s, plus Gazebo's startup
-MISSIONS_TIMEOUT_S = 300.0
+# Generous: the missions take about 200 s, plus Gazebo's startup
+MISSIONS_TIMEOUT_S = 480.0
 
 
 @pytest.mark.launch_test

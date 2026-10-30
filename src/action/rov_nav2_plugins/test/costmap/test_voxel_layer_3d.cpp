@@ -140,7 +140,8 @@ struct Setup
 
 }  // namespace
 
-TEST_CASE_METHOD(TestExecutorFixture, "VoxelLayer3D keeps the floor in 3D and only full columns in 2D", "[voxel_layer]")
+TEST_CASE_METHOD(
+  TestExecutorFixture, "VoxelLayer3D keeps the floor and obstacles in 3D, and nothing in 2D", "[voxel_layer]")
 {
   Setup setup;
   auto publisher_node = std::make_shared<rclcpp::Node>("cloud_publisher");
@@ -170,9 +171,14 @@ TEST_CASE_METHOD(TestExecutorFixture, "VoxelLayer3D keeps the floor in 3D and on
   const auto volume = setup.layer->cost_volume();
   // The floor is lethal in 3D, and the water well above it is free
   REQUIRE(volume->cost({5, 5, 9}) == nav2_costmap_2d::FREE_SPACE);
-  // In 2D, only the post and the cells within the vehicle's half-width of it are blocked
-  REQUIRE(setup.cost_2d(20, 15) == nav2_costmap_2d::LETHAL_OBSTACLE);
-  REQUIRE(setup.cost_2d(22, 15) == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE);
+  // The post is lethal at every depth, and inflated beside it
+  REQUIRE(volume->cost({20, 15, 5}) == nav2_costmap_2d::LETHAL_OBSTACLE);
+  REQUIRE(volume->cost({22, 15, 5}) == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE);
+  // The sonar has seen the water between it and the floor, but not the water above it
+  REQUIRE(volume->known({5, 15, 3}));
+  REQUIRE_FALSE(volume->known({5, 5, 9}));
+  // Nothing reaches the 2D costmap, not even the post
+  REQUIRE(setup.cost_2d(20, 15) == nav2_costmap_2d::FREE_SPACE);
   REQUIRE(setup.cost_2d(5, 5) == nav2_costmap_2d::FREE_SPACE);
 
   // The inflated voxels are published for viewing
@@ -191,5 +197,6 @@ TEST_CASE_METHOD(TestExecutorFixture, "VoxelLayer3D keeps the floor in 3D and on
     setup.layer->reset();
     setup.costmap->updateMap(0.0, 0.0, 0.0);
     REQUIRE(setup.layer->cost_volume()->cost({5, 5, 0}) == nav2_costmap_2d::FREE_SPACE);
+    REQUIRE_FALSE(setup.layer->cost_volume()->known({5, 5, 0}));
   }
 }

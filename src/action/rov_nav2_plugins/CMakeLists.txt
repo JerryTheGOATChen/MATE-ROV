@@ -47,8 +47,8 @@ add_library(${PROJECT_NAME} SHARED
   src/costmap/costmap_math.cpp
   src/costmap/voxel_layer_3d.cpp
   src/goal_checker/goal_checker_3d.cpp
-  src/planner/costmap_planner_3d.cpp
   src/planner/planner_math.cpp
+  src/planner/voxel_planner_3d.cpp
   src/progress_checker/progress_checker_3d.cpp
 )
 
@@ -107,7 +107,7 @@ if(BUILD_TESTING)
   add_wato_test(test_planner_math test/planner/test_planner_math.cpp LIBRARIES ${PROJECT_NAME})
 
   # Nav2 plugin interfaces
-  add_wato_test(test_costmap_planner_3d test/planner/test_costmap_planner_3d.cpp LIBRARIES ${PROJECT_NAME})
+  add_wato_test(test_voxel_planner_3d test/planner/test_voxel_planner_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_voxel_layer_3d test/costmap/test_voxel_layer_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_pure_pursuit_controller_3d test/controller/test_pure_pursuit_controller_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_goal_checker_3d test/goal_checker/test_goal_checker_3d.cpp LIBRARIES ${PROJECT_NAME})

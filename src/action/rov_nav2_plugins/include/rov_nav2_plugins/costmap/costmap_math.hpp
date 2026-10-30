@@ -69,10 +69,18 @@ std::vector<Eigen::Vector3i> traverse(
 
 // --- Occupancy ---
 
+/// What the sensor last saw in a voxel. A voxel it has never seen, or has not seen for too long, is unknown.
+enum class Occupancy : std::uint8_t
+{
+  kUnknown,
+  kFree,
+  kOccupied,
+};
+
 /**
- * @brief 3D occupancy from range returns, each voxel remembering when it was last seen occupied.
+ * @brief 3D occupancy from range returns, each voxel remembering what it was last seen as, and when.
  *
- * Every return is an obstacle, the floor included; nothing is filtered by height.
+ * Every return is an obstacle, the floor included; nothing is filtered by height. Voxels start unknown.
  */
 class VoxelGrid3D
 {
@@ -85,8 +93,8 @@ public:
   /**
    * @brief Add one scan, seen from `origin` at time `stamp` (s).
    *
-   * The space between the sensor and each return is clear, so the voxels on each ray are cleared, then
-   * the voxel of each return is marked. All rays are cleared before any return is marked, so one
+   * The space between the sensor and each return is clear, so the voxels on each ray are marked free, then
+   * the voxel of each return is marked occupied. All rays are cleared before any return is marked, so one
    * return's ray never erases another return from the same scan, such as the floor beside it.
    *
    * Returns farther than `max_range` from `origin`, and returns that are not finite, are ignored.
@@ -94,17 +102,20 @@ public:
   void insert(
     const Eigen::Vector3d & origin, const std::vector<Eigen::Vector3d> & points, double stamp, double max_range);
 
-  /// Clear every voxel last marked more than `max_age` (s) before `now` (s). Returns how many were cleared.
+  /// Forget every voxel last seen more than `max_age` (s) before `now` (s). Returns how many were forgotten.
   std::size_t decay(double now, double max_age);
 
-  /// Clear every voxel.
+  /// Forget every voxel.
   void clear();
+
+  Occupancy occupancy(const Eigen::Vector3i & voxel) const;
 
   bool occupied(const Eigen::Vector3i & voxel) const;
 
 private:
   GridGeometry geometry_;
-  std::vector<double> marked_at_;  // s, the time each voxel was last marked; -infinity if clear
+  std::vector<Occupancy> occupancy_;
+  std::vector<double> seen_at_;  // s, the time each voxel was last seen; meaningless while it is unknown
 };
 
 // --- Inflation ---
@@ -129,32 +140,37 @@ struct InflationConfig
  */
 std::uint8_t inflated_cost(double distance, const InflationConfig & config);
 
-/// Immutable 3D costs over a grid, as computed by inflate().
+/**
+ * @brief Immutable 3D costs over a grid, as computed by inflate(), and which voxels the sensor has seen.
+ *
+ * A voxel's cost comes only from the obstacles seen so far, so an unknown voxel can have any cost; whether to
+ * trust its water is up to the planner.
+ */
 class CostVolume
 {
 public:
-  /// @throws std::invalid_argument if there is not one cost per voxel
-  CostVolume(const GridGeometry & geometry, std::vector<std::uint8_t> costs);
+  /// @throws std::invalid_argument if there is not one cost and one known flag per voxel
+  CostVolume(const GridGeometry & geometry, std::vector<std::uint8_t> costs, std::vector<bool> known);
 
   const GridGeometry & geometry() const;
 
   /// Cost of `voxel`, which must be in the grid.
   std::uint8_t cost(const Eigen::Vector3i & voxel) const;
 
-  /// Lowest cost in column (`i`, `j`), which must be in the grid: the cost of passing there at the best depth.
-  std::uint8_t column_min(int i, int j) const;
+  /// Whether the sensor has seen `voxel`, which must be in the grid, recently enough to remember it.
+  bool known(const Eigen::Vector3i & voxel) const;
 
 private:
   GridGeometry geometry_;
   std::vector<std::uint8_t> costs_;
-  std::vector<std::uint8_t> column_min_;
+  std::vector<bool> known_;
 };
 
 /**
  * @brief Inflate the occupied voxels of `grid` in 3D.
  *
  * Distances come from an exact Euclidean distance transform (Felzenszwalb and Huttenlocher), one pass
- * per axis, so the cost is linear in the number of voxels.
+ * per axis, so the cost is linear in the number of voxels. Unknown voxels are not obstacles.
  *
  * @throws std::invalid_argument if a radius, the half-height or the scaling factor is not positive, or the
  *   inflation radius is less than the inscribed radius

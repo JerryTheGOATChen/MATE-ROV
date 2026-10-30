@@ -54,26 +54,32 @@ export ROS_DOMAIN_ID=81
 Run these in order, each in its own terminal.
 
 **1. Containers.** `up`, not just `-t`, so the infrastructure container starts too, with the Zenoh router and Foxglove.
+
 ```bash
 ./watod -m action:dev up
 ```
 
 **2. Nav2, in the container, with sim time.**
+
 ```bash
 ./watod -t action_bringup_dev
 # inside the container
 colcon build && source install/setup.bash
 ros2 launch action_bringup nav2.launch.yaml use_sim_time:=true
 ```
+
 Launch `nav2.launch.yaml`, not `action.launch.yaml`: `action.launch.yaml` doesn't pass `use_sim_time` through, so Nav2 would ignore Gazebo's clock.
 
 **3. The sim, on the host** (with the host environment above).
+
 ```bash
 ros2 launch rov_gazebo_sim gazebo.launch.yaml gui:=true
 ```
+
 Use `gazebo.launch.yaml`, not `sim.launch.yaml`. `sim.launch.yaml` starts its own Nav2 alongside the container's.
 
 **4. The missions, on the host** (with the host environment above).
+
 ```bash
 ros2 run rov_mission_runner mission_runner \
   $(ros2 pkg prefix --share rov_gazebo_sim)/missions/pool_missions.yaml \
@@ -87,8 +93,7 @@ ros2 run rov_mission_runner mission_runner \
 - Import [`config/rov_config.json`](config/rov_config.json) as a layout (**Layouts → Import**). It's a 3D panel following `map` with these topics:
   - `/plan`
   - `/sonar/points`
-  - `/global_costmap/voxel_grid`
-  - `/global_costmap/costmap` (off by default)
+  - `/global_costmap/voxel_layer_3d/voxel_costs` (the 3D costs the planner routes through, colored by cost)
 
   You can also add `/odom` (the EKF's estimate) and `/sim/ground_truth` (where the ROV really is).
 
@@ -110,6 +115,7 @@ The bridge's image has no `nav2_msgs` or `map_msgs`, so Foxglove can't decode `/
 A `simulation` watod module would remove all the host setup: a Dockerfile with Gazebo Harmonic, a compose service with GPU and X11 access, and a mount of `src/simulation`. Then running the sim would be `./watod -m simulation action:dev up`.
 
 ### Getting Intellisense to work on VSCode
+
 ```
 ./watod -s action
 ```

@@ -34,6 +34,7 @@ using rov_nav2_plugins::InflationConfig;
 using rov_nav2_plugins::kFreeCost;
 using rov_nav2_plugins::kInscribedCost;
 using rov_nav2_plugins::kLethalCost;
+using rov_nav2_plugins::Occupancy;
 using rov_nav2_plugins::traverse;
 using rov_nav2_plugins::VoxelGrid3D;
 
@@ -141,6 +142,7 @@ TEST_CASE("VoxelGrid3D clears the space before a return and marks the return", "
 {
   VoxelGrid3D grid(pool_geometry());
   const Eigen::Vector3d sonar{0.05, 0.55, 0.55};
+  REQUIRE(grid.occupancy({9, 5, 5}) == Occupancy::kUnknown);
 
   // An obstacle seen earlier, now in front of a farther return
   mark(grid, {0.95, 0.55, 0.55});
@@ -148,8 +150,11 @@ TEST_CASE("VoxelGrid3D clears the space before a return and marks the return", "
 
   grid.insert(sonar, {{1.55, 0.55, 0.55}}, 1.0, 8.0);
 
-  REQUIRE_FALSE(grid.occupied({9, 5, 5}));
-  REQUIRE(grid.occupied({15, 5, 5}));
+  REQUIRE(grid.occupancy({9, 5, 5}) == Occupancy::kFree);
+  REQUIRE(grid.occupancy({15, 5, 5}) == Occupancy::kOccupied);
+  // Beyond the return, and off the ray, nothing has been seen
+  REQUIRE(grid.occupancy({16, 5, 5}) == Occupancy::kUnknown);
+  REQUIRE(grid.occupancy({9, 6, 5}) == Occupancy::kUnknown);
 
   SECTION("Returns beyond the obstacle range, or not finite, are ignored")
   {
@@ -185,14 +190,20 @@ TEST_CASE("VoxelGrid3D forgets voxels not seen for longer than the decay time", 
   VoxelGrid3D grid(pool_geometry());
   mark(grid, {0.05, 0.05, 0.05}, 10.0);
   mark(grid, {0.55, 0.05, 0.05}, 30.0);
+  // Water seen free along y at time 10, ending in a return at time 10
+  grid.insert({0.05, 0.25, 0.05}, {{0.05, 0.55, 0.05}}, 10.0, 8.0);
+  REQUIRE(grid.occupancy({0, 3, 0}) == Occupancy::kFree);
 
-  REQUIRE(grid.decay(60.0, 40.0) == 1);
-  REQUIRE_FALSE(grid.occupied({0, 0, 0}));
+  // Both what was seen occupied and what was seen free is forgotten
+  REQUIRE(grid.decay(60.0, 40.0) == 5);
+  REQUIRE(grid.occupancy({0, 0, 0}) == Occupancy::kUnknown);
+  REQUIRE(grid.occupancy({0, 3, 0}) == Occupancy::kUnknown);
+  REQUIRE(grid.occupancy({0, 5, 0}) == Occupancy::kUnknown);
   REQUIRE(grid.occupied({5, 0, 0}));
   REQUIRE(grid.decay(60.0, 40.0) == 0);
 
   grid.clear();
-  REQUIRE_FALSE(grid.occupied({5, 0, 0}));
+  REQUIRE(grid.occupancy({5, 0, 0}) == Occupancy::kUnknown);
 }
 
 TEST_CASE("VoxelGrid3D needs a grid", "[costmap_math]")
@@ -256,8 +267,7 @@ TEST_CASE("inflate matches a brute-force search for the nearest obstacle", "[cos
   }
 }
 
-TEST_CASE(
-  "inflate keeps the vehicle's half-height off the floor, and columns report their best depth", "[costmap_math]")
+TEST_CASE("inflate keeps the vehicle's half-height off the floor", "[costmap_math]")
 {
   VoxelGrid3D grid(pool_geometry());
   // The floor at the bottom of the grid, and a post through every depth at x = 1.05
@@ -279,10 +289,41 @@ TEST_CASE(
   REQUIRE(volume.cost({3, 5, 2}) < kInscribedCost);  // 0.2 m up, beyond the 0.15 m half-height
   REQUIRE(volume.cost({3, 5, 4}) == kFreeCost);  // 0.4 m up, beyond 0.6 m horizontal-equivalent
 
-  // In 2D, only the post's column is blocked at every depth
-  REQUIRE(volume.column_min(10, 5) == kLethalCost);
-  REQUIRE(volume.column_min(12, 5) == kInscribedCost);
-  REQUIRE(volume.column_min(3, 5) == kFreeCost);
+  // Beside the post, cost falls off over the vehicle's half-width
+  REQUIRE(volume.cost({10, 5, 5}) == kLethalCost);
+  REQUIRE(volume.cost({12, 5, 5}) == kInscribedCost);  // 0.2 m away
+  REQUIRE(volume.cost({14, 5, 5}) < kInscribedCost);  // 0.4 m away
+}
+
+TEST_CASE("inflate reports which voxels the sensor has seen, and unknown voxels are not obstacles", "[costmap_math]")
+{
+  VoxelGrid3D grid(pool_geometry());
+  // A return at x = 1.05, seen along x from the sonar at x = 0.05
+  grid.insert({0.05, 0.55, 0.55}, {{1.05, 0.55, 0.55}}, 0.0, 8.0);
+
+  const CostVolume volume = inflate(grid, vehicle());
+
+  REQUIRE(volume.known({0, 5, 5}));  // the sonar's own voxel
+  REQUIRE(volume.known({5, 5, 5}));  // free water on the ray
+  REQUIRE(volume.known({10, 5, 5}));  // the return
+  REQUIRE_FALSE(volume.known({11, 5, 5}));  // behind the return
+  REQUIRE_FALSE(volume.known({5, 0, 5}));  // off the ray
+
+  // Costs come from the return alone: the unknown water around it is not an obstacle
+  REQUIRE(volume.cost({10, 5, 5}) == kLethalCost);
+  REQUIRE(volume.cost({11, 5, 5}) == kInscribedCost);
+  REQUIRE(volume.cost({5, 0, 5}) == kFreeCost);
+}
+
+TEST_CASE("CostVolume needs one cost and one known flag per voxel", "[costmap_math]")
+{
+  const GridGeometry geometry = pool_geometry();
+  REQUIRE_THROWS_AS(
+    CostVolume(geometry, std::vector<std::uint8_t>(geometry.count()), std::vector<bool>(geometry.count() - 1)),
+    std::invalid_argument);
+  REQUIRE_THROWS_AS(
+    CostVolume(geometry, std::vector<std::uint8_t>(geometry.count() + 1), std::vector<bool>(geometry.count())),
+    std::invalid_argument);
 }
 
 TEST_CASE("inflate rejects a vehicle with no size", "[costmap_math]")

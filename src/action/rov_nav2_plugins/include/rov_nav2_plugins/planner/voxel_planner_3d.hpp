@@ -21,30 +21,31 @@
 #include "nav2_core/global_planner.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "nav_msgs/msg/path.hpp"
-#include "pluginlib/class_loader.hpp"
+#include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "rov_nav2_plugins/costmap/voxel_layer_3d.hpp"
+#include "rov_nav2_plugins/planner/planner_math.hpp"
 #include "tf2_ros/buffer.hpp"
 
 namespace rov_nav2_plugins
 {
 
 /**
- * @brief Nav2 global planner that routes around the costmap's obstacles in 3D.
+ * @brief Nav2 global planner that routes over, under or around obstacles through VoxelLayer3D's 3D costs.
  *
- * A stock Nav2 2D planner finds the horizontal route through the costmap, and add_depth() adds depth
- * and yaw to it.
+ * The layer must be in the planner server's costmap, the global costmap. Each plan reads the layer's latest
+ * cost volume, plans through it with plan_through_voxels(), and adds headings with add_yaw().
  *
  * Parameters (under the plugin name):
- *  - `xy_planner` (string, default "nav2_smac_planner::SmacPlanner2D"): the 2D planner plugin. Its own
- *    parameters go under `<plugin name>.xy`, such as `CostmapPlanner3D.xy.tolerance`.
- *  - `z_before_xy` (bool, default false): change depth first, then move horizontally
+ *  - `voxel_layer` (string, default "voxel_layer_3d"): the name of the VoxelLayer3D in the costmap
+ *  - `cost_weight` (default 2.0), `unknown_cost` (int, default 40), `z_weight` (default 1.5),
+ *    `max_planning_time` (s, default 1.0): see PlannerConfig
+ *  - `yaw_mode` (string, default "interpolate"): "interpolate" or "face_travel", see YawMode
  */
-class CostmapPlanner3D : public nav2_core::GlobalPlanner
+class VoxelPlanner3D : public nav2_core::GlobalPlanner
 {
 public:
-  CostmapPlanner3D();
-  ~CostmapPlanner3D() override;
-
+  /// @throws std::runtime_error if the costmap has no VoxelLayer3D named `voxel_layer`
   void configure(
     const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
     std::string name,
@@ -56,8 +57,9 @@ public:
   void deactivate() override;
 
   /**
-   * @throws nav2_core::PlannerException subclasses from the 2D planner, such as
-   *   nav2_core::NoValidPathCouldBeFound when obstacles block every route
+   * @throws nav2_core::PlannerException subclasses: StartOutsideMapBounds, GoalOutsideMapBounds,
+   *   StartOccupied, GoalOccupied, NoValidPathCouldBeFound, PlannerTimedOut and PlannerCancelled, or the base
+   *   class if the layer's grid has no size
    */
   nav_msgs::msg::Path createPlan(
     const geometry_msgs::msg::PoseStamped & start,
@@ -65,11 +67,12 @@ public:
     std::function<bool()> cancel_checker) override;
 
 private:
-  bool z_before_xy_{false};
-
-  // The loader must outlive the planner it created, so it is declared first
-  pluginlib::ClassLoader<nav2_core::GlobalPlanner> loader_;
-  pluginlib::UniquePtr<nav2_core::GlobalPlanner> xy_planner_;
+  rclcpp::Logger logger_{rclcpp::get_logger("VoxelPlanner3D")};
+  rclcpp::Clock::SharedPtr clock_;
+  std::string global_frame_;
+  std::shared_ptr<VoxelLayer3D> layer_;
+  PlannerConfig config_;
+  YawMode yaw_mode_{YawMode::kInterpolate};
 };
 
 }  // namespace rov_nav2_plugins

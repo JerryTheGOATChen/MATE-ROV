@@ -25,7 +25,6 @@
 #include <utility>
 #include <vector>
 
-#include "nav2_costmap_2d/cost_values.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
@@ -118,7 +117,7 @@ void VoxelLayer3D::reset()
 
 void VoxelLayer3D::matchSize()
 {
-  // The grid's columns are the master costmap's cells, so updateCosts() can copy them across
+  // The grid's columns are the master costmap's cells, so the grid covers the costmap's window
   const auto * master = layered_costmap_->getCostmap();
   GridGeometry geometry;
   geometry.resolution = master->getResolution();
@@ -128,15 +127,19 @@ void VoxelLayer3D::matchSize()
     static_cast<int>(master->getSizeInCellsY()),
     std::max(1, static_cast<int>(std::ceil((max_z_ - min_z_) / geometry.resolution - 1e-9)))};
 
-  // The costmap has no size until it is configured
+  // The costmap has no size until it is configured. Until the first update computes the costs, the planner sees
+  // the grid as it starts: every voxel unknown and free.
+  std::shared_ptr<const CostVolume> volume;
   if (geometry.resolution > 0.0 && geometry.size.x() > 0 && geometry.size.y() > 0) {
     grid_.emplace(geometry);
+    volume = std::make_shared<const CostVolume>(
+      geometry, std::vector<std::uint8_t>(geometry.count(), kFreeCost), std::vector<bool>(geometry.count(), false));
   } else {
     grid_.reset();
   }
   grid_changed_ = true;
   std::lock_guard<std::mutex> lock(volume_mutex_);
-  volume_.reset();
+  volume_ = volume;
 }
 
 bool VoxelLayer3D::isClearable()
@@ -148,11 +151,12 @@ void VoxelLayer3D::updateBounds(
   double /*robot_x*/,
   double /*robot_y*/,
   double /*robot_yaw*/,
-  double * min_x,
-  double * min_y,
-  double * max_x,
-  double * max_y)
+  double * /*min_x*/,
+  double * /*min_y*/,
+  double * /*max_x*/,
+  double * /*max_y*/)
 {
+  // The bounds are left alone, because the layer writes nothing into the 2D costmap
   if (!enabled_ || !grid_) {
     return;
   }
@@ -216,36 +220,13 @@ void VoxelLayer3D::updateBounds(
   if (voxel_costs_pub_ && voxel_costs_pub_->is_activated() && voxel_costs_pub_->get_subscription_count() > 0) {
     publish_voxel_costs(*volume);
   }
-
-  // Any column may have changed
-  const GridGeometry & geometry = grid_->geometry();
-  *min_x = std::min(*min_x, geometry.origin.x());
-  *min_y = std::min(*min_y, geometry.origin.y());
-  *max_x = std::max(*max_x, geometry.origin.x() + geometry.size.x() * geometry.resolution);
-  *max_y = std::max(*max_y, geometry.origin.y() + geometry.size.y() * geometry.resolution);
 }
 
-void VoxelLayer3D::updateCosts(nav2_costmap_2d::Costmap2D & master_grid, int min_i, int min_j, int max_i, int max_j)
+void VoxelLayer3D::updateCosts(
+  nav2_costmap_2d::Costmap2D & /*master_grid*/, int /*min_i*/, int /*min_j*/, int /*max_i*/, int /*max_j*/)
 {
-  const auto volume = cost_volume();
-  if (!enabled_ || !volume) {
-    return;
-  }
-
-  // Combine with max, as Nav2's layers do, keeping the master's unknown cells unknown
-  unsigned char * master = master_grid.getCharMap();
-  const unsigned int size_x = master_grid.getSizeInCellsX();
-  const int end_i = std::min(max_i, volume->geometry().size.x());
-  const int end_j = std::min(max_j, volume->geometry().size.y());
-  for (int j = std::max(min_j, 0); j < end_j; ++j) {
-    for (int i = std::max(min_i, 0); i < end_i; ++i) {
-      const std::uint8_t cost = volume->column_min(i, j);
-      unsigned char & old_cost = master[j * size_x + i];
-      if (old_cost == nav2_costmap_2d::NO_INFORMATION || old_cost < cost) {
-        old_cost = cost;
-      }
-    }
-  }
+  // The costs stay in 3D, for the planner to read from cost_volume(). No 2D projection of them is safe to
+  // plan on: an obstacle at one depth either blocks every depth or none.
 }
 
 std::shared_ptr<const CostVolume> VoxelLayer3D::cost_volume() const

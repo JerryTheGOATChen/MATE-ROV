@@ -30,13 +30,10 @@
       "scene": {},
       "transforms": {},
       "topics": {
-        "/global_costmap/costmap": {
-          "visible": false
-        },
-        "/global_costmap/voxel_grid": {
+        "/global_costmap/voxel_layer_3d/voxel_costs": {
           "visible": true,
-          "colorField": "z",
-          "colorMode": "flat",
+          "colorField": "intensity",
+          "colorMode": "colormap",
           "colorMap": "turbo",
           "pointShape": "square",
           "pointSize": 6

@@ -1,6 +1,6 @@
 # ROV Nav2 Plugins
 
-Nav2 loads these plugins through pluginlib: `plugins.xml` exports each class against its Nav2 base class, and `costmap_plugins.xml` exports the costmap layer, which Nav2 loads through `nav2_costmap_2d` instead of `nav2_core`. The Nav2 servers create the ones named in their YAML configuration. The servers own all ROS communication, except that `VoxelLayer3D` subscribes to the sonar's point cloud and can publish its 3D costs for viewing. Only `CostmapPlanner3D` reads a costmap, the global costmap of the sonar's obstacles; the others use only the costmaps' frames.
+Nav2 loads these plugins through pluginlib: `plugins.xml` exports each class against its Nav2 base class, and `costmap_plugins.xml` exports the costmap layer, which Nav2 loads through `nav2_costmap_2d` instead of `nav2_core`. The Nav2 servers create the ones named in their YAML configuration. The servers own all ROS communication, except that `VoxelLayer3D` subscribes to the sonar's point cloud and can publish its 3D costs for viewing. `VoxelLayer3D` keeps the sonar's obstacles in 3D and writes nothing into the 2D costmap. `VoxelPlanner3D` reads the layer's 3D costs directly; the others use only the costmaps' frames.
 
 ## Plugin Types
 
@@ -20,9 +20,9 @@ The base classes are defined in [`nav2_core`](https://github.com/ros-navigation/
 
 | Method | When Called | Purpose |
 |---|---|---|
-| `configure()` / `initialize()` | The server configures. The planner and controller have `configure()`; the checkers have `initialize()`. | Read parameters. The planner also loads and configures its 2D planner, and the controller takes its frames from the costmap. |
-| `activate()` / `deactivate()` | The server activates or deactivates. | Nothing, except that `CostmapPlanner3D` passes them on to its 2D planner. |
-| `cleanup()` | The server cleans up. | The controller drops its path, and `CostmapPlanner3D` unloads its 2D planner. |
+| `configure()` / `initialize()` | The server configures. The planner and controller have `configure()`; the checkers have `initialize()`. | Read parameters. The planner also finds `VoxelLayer3D` in its costmap, and the controller takes its frames from the costmap. |
+| `activate()` / `deactivate()` | The server activates or deactivates. | Nothing. |
+| `cleanup()` | The server cleans up. | The controller drops its path, and the planner lets go of the layer. |
 | `onInitialize()` | The costmap configures, after `initialize()` has given the layer its node, TF buffer and costmap. | `VoxelLayer3D` reads parameters, subscribes to the cloud and sizes its grid to the costmap. |
 | `matchSize()` | The costmap is resized. | `VoxelLayer3D` resizes its grid and forgets its voxels. |
 | `activate()` / `deactivate()` (layer) | The costmap activates or deactivates. | `VoxelLayer3D` activates or deactivates its `voxel_costs` publisher. |
@@ -31,7 +31,7 @@ The base classes are defined in [`nav2_core`](https://github.com/ros-navigation/
 
 | Method | Plugin | When Called | Purpose |
 |---|---|---|---|
-| `createPlan()` | Planner | Each `ComputePathToPose` request, and once per leg of a `ComputePathThroughPoses` request. | Plan a route around the costmap's obstacles from the start to the goal. |
+| `createPlan()` | Planner | Each `ComputePathToPose` request, and once per leg of a `ComputePathThroughPoses` request. | Plan a route over, under or around the layer's obstacles from the start to the goal. |
 | `setPlan()` | Controller | A `FollowPath` goal starts, or a new path replaces the current one. | Follow the new path from its beginning, keeping the last command so acceleration stays limited. |
 | `computeVelocityCommands()` | Controller | Every control period until the goal is reached. | Return the next `cmd_vel`. |
 | `reset()` | Controller | The server publishes zero velocity: navigation succeeded, was canceled or failed. | Forget the path and the last command. |
@@ -41,13 +41,13 @@ The base classes are defined in [`nav2_core`](https://github.com/ros-navigation/
 | `reset()` | Goal checker | The controller gets a new path. | Nothing: the checker keeps no state. |
 | `check()` | Progress checker | Every control period, before the velocity command is computed. | Fail once the vehicle has gone too long without moving or turning enough. |
 | `reset()` | Progress checker | A `FollowPath` goal starts. | Start timing again from the next pose. |
-| `updateBounds()` | Costmap layer | Every costmap update, at `update_frequency`, before `updateCosts()`. | Insert the clouds received since the last update, decay old voxels and, if anything changed, recompute the 3D costs and mark the whole window changed. |
-| `updateCosts()` | Costmap layer | Every costmap update, over the changed window of every layer. | Write each column's lowest cost into the 2D costmap, keeping the higher of it and the cost already there. |
+| `updateBounds()` | Costmap layer | Every costmap update, at `update_frequency`, before `updateCosts()`. | Insert the clouds received since the last update, forget old voxels and, if anything changed, recompute the 3D costs. The bounds are left alone. |
+| `updateCosts()` | Costmap layer | Every costmap update, over the changed window of every layer. | Nothing: the costs stay in 3D. |
 | `reset()` | Costmap layer | A clear-costmap request, from a behavior tree recovery or a service. | Forget every voxel. |
 
 ## Plugin Documentation
 
-- [CostmapPlanner3D](src/planner/costmap_planner_3d.md) -- Route around the sonar's obstacles with Nav2's Smac 2D planner, adding depth
+- [VoxelPlanner3D](src/planner/voxel_planner_3d.md) -- A* through VoxelLayer3D's 3D costs, over, under or around obstacles
 - [PurePursuitController3D](src/controller/pure_pursuit_controller_3d.md) -- 3D pure pursuit commanding surge, sway, heave and yaw rate
 - [GoalChecker3D](src/goal_checker/goal_checker_3d.md) -- Horizontal, vertical and heading errors all within tolerance at once
 - [ProgressChecker3D](src/progress_checker/progress_checker_3d.md) -- Moving in 3D or turning counts as progress

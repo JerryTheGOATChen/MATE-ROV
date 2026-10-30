@@ -1,5 +1,5 @@
 <library path="rov_nav2_plugins">
   <class type="rov_nav2_plugins::VoxelLayer3D" base_class_type="nav2_costmap_2d::Layer">
-    <description>3D voxel grid of the sonar's returns, floor included, inflated in 3D; writes each column's lowest cost to the 2D costmap.</description>
+    <description>3D voxel grid of the sonar's returns, floor included, inflated in 3D for a 3D planner; writes nothing to the 2D costmap.</description>
   </class>
 </library>

@@ -11,11 +11,11 @@ Each plugin has a folder, the same under `src/`, `include/rov_nav2_plugins/` and
 | Folder | Nav2 plugin | Math it uses |
 |--------|-------------|--------------|
 | `common/` | | `pose4d`: x, y, z and yaw, with conversions to and from ROS messages |
-| `planner/` | `costmap_planner_3d` | `planner_math`: `add_depth()` adds depth and yaw to a 2D route |
+| `planner/` | `voxel_planner_3d` | `planner_math`: `plan_through_voxels()`, A* through a `CostVolume` and the shortening of its route into straight segments; and `add_yaw()`, the headings along the route. It reads `costmap_math`'s `CostVolume` and uses its `traverse()` |
 | `controller/` | `pure_pursuit_controller_3d` | `controller_math`: `Pursuit`, the control law below; `PathTracker`, a path parameterized by arc length, which tracks the vehicle's progress and interpolates the pose any distance ahead; and the speed profile and limit helpers |
 | `goal_checker/` | `goal_checker_3d` | `pose4d` only |
 | `progress_checker/` | `progress_checker_3d` | `pose4d` only |
-| `costmap/` | `voxel_layer_3d` | `costmap_math`: `traverse()`, the 3D raytrace; `VoxelGrid3D`, occupancy with clearing and decay; `inflate()`, a 3D Euclidean distance transform turned into Nav2 costs; and `CostVolume`, the result |
+| `costmap/` | `voxel_layer_3d` | `costmap_math`: `traverse()`, the 3D raytrace; `VoxelGrid3D`, each voxel unknown, free or occupied, with clearing and decay; `inflate()`, a 3D Euclidean distance transform turned into Nav2 costs; and `CostVolume`, the result: costs and which voxels are known |
 
 The math is plain C++ with Eigen, independent of Nav2 and ROS communication, so it is fast to test exhaustively. The plugin classes adapt it to Nav2: they read parameters, handle frames and TF, convert messages, and report errors as Nav2 exceptions. Keep logic out of them. [PLUGINS.md](PLUGINS.md) covers when Nav2 calls them.
 
@@ -39,7 +39,7 @@ Velocity and acceleration limits are per body axis. When one axis's limit binds,
 | Heading | Faces the lookahead point; goal heading ignored | Tracks the path's heading; goal heading checked |
 | Goal checker | Horizontal and vertical distance | Horizontal, vertical and heading, all at once |
 | Progress checker | 3D distance | 3D distance or turning |
-| Planner | Straight line; pose spacing from a truncated count; goal appended | Routes around the costmap's obstacles; always begins at the vehicle and ends exactly at the goal, including turns in place |
+| Planner | Straight line; pose spacing from a truncated count; goal appended | Routes over, under or around the obstacles in a 3D voxel map; always begins at the vehicle and ends exactly at the goal, including turns in place |
 | Acceleration limits | Per axis, from a separate `tick_rate` | Direction-preserving, from the controller server's frequency |
 
 ## Testing
@@ -49,8 +49,9 @@ colcon test --packages-select rov_nav2_plugins
 colcon test-result --verbose
 ```
 
-- The algorithm tests include closed-loop runs of `Pursuit` against a simulated vehicle, both ideal and with response lag and a water current. Their thresholds sit just above measured performance, so a regression in tracking or arrival time fails them.
-- The plugin tests drive each plugin through its Nav2 interface. `test_voxel_layer_3d` publishes a cloud to the layer inside a `LayeredCostmap`. `test_plugin_loading` loads each plugin by name through pluginlib, as the Nav2 servers do, which catches mistakes in `plugins.xml`, `costmap_plugins.xml` and the export macros.
+- The algorithm tests include closed-loop runs of `Pursuit` against a simulated vehicle, both ideal and with response lag and a water current, including one flying a planned route over a block. Their thresholds sit just above measured performance, so a regression in tracking, arrival time or clearance fails them.
+- `test_planner_math` checks the search against a brute-force Dijkstra search on random grids, and plans over, under, around and through obstacles in a tank.
+- The plugin tests drive each plugin through its Nav2 interface. `test_voxel_layer_3d` publishes a cloud to the layer inside a `LayeredCostmap`, and `test_voxel_planner_3d` plans over what a cloud shows, with the layer loaded by name into a `Costmap2DROS`. `test_plugin_loading` loads each plugin by name through pluginlib, as the Nav2 servers do, which catches mistakes in `plugins.xml`, `costmap_plugins.xml` and the export macros.
 - There is no end-to-end test through the real Nav2 servers in the repository yet.
 
 ## Known limitations

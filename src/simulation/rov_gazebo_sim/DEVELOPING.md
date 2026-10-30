@@ -26,7 +26,7 @@ Gazebo has no DVL or depth sensor, so the ROV carries three of Gazebo's odometry
 
 The IMU is Gazebo's, with noise on its turn rates. Gazebo doesn't add noise to an IMU's orientation, so the EKF's heading only drifts through the turn rates. Nothing measures x and y, so position drifts slowly, as it would with a real DVL.
 
-The sonar is a GPU lidar with a 3D imaging sonar's field of view, so every return has a real height. Its floor returns land at z = -4, where `action_bringup`'s costmap ignores everything below -3.8 m. A sonar that can't measure height would put floor echoes at the vehicle's depth instead, which is why the costmap needs height-measuring data.
+The sonar is a GPU lidar with a 3D imaging sonar's field of view, so every return has a real height. Its floor returns land at z = -4, where `action_bringup`'s 3D costmap keeps them as the floor. A sonar that can't measure height would put floor echoes at the vehicle's depth instead, which is why the costmap needs height-measuring data.
 
 ## Current hacks
 

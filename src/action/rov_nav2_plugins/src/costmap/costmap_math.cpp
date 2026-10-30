@@ -30,7 +30,6 @@ namespace
 {
 
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
-constexpr double kClear = -kInfinity;
 
 /**
  * @brief One-dimensional squared distance transform, for squared distances weighted by `weight_sq`.
@@ -222,7 +221,8 @@ VoxelGrid3D::VoxelGrid3D(const GridGeometry & geometry)
   if (geometry_.resolution <= 0.0 || (geometry_.size.array() <= 0).any()) {
     throw std::invalid_argument("The voxel grid needs a positive resolution and at least one voxel on each axis");
   }
-  marked_at_.assign(geometry_.count(), kClear);
+  occupancy_.assign(geometry_.count(), Occupancy::kUnknown);
+  seen_at_.assign(geometry_.count(), 0.0);
 }
 
 const GridGeometry & VoxelGrid3D::geometry() const
@@ -244,38 +244,48 @@ void VoxelGrid3D::insert(
     }
   }
 
+  const auto see = [this, stamp](const Eigen::Vector3i & voxel, Occupancy occupancy) {
+    const std::size_t index = geometry_.index(voxel);
+    occupancy_[index] = occupancy;
+    seen_at_[index] = stamp;
+  };
   for (const auto & point : returns) {
     for (const auto & voxel : traverse(geometry_, origin, point)) {
-      marked_at_[geometry_.index(voxel)] = kClear;
+      see(voxel, Occupancy::kFree);
     }
   }
   for (const auto & point : returns) {
     if (const auto voxel = geometry_.voxel_at(point)) {
-      marked_at_[geometry_.index(*voxel)] = stamp;
+      see(*voxel, Occupancy::kOccupied);
     }
   }
 }
 
 std::size_t VoxelGrid3D::decay(double now, double max_age)
 {
-  std::size_t cleared = 0;
-  for (double & marked_at : marked_at_) {
-    if (marked_at != kClear && now - marked_at > max_age) {
-      marked_at = kClear;
-      ++cleared;
+  std::size_t forgotten = 0;
+  for (std::size_t n = 0; n < occupancy_.size(); ++n) {
+    if (occupancy_[n] != Occupancy::kUnknown && now - seen_at_[n] > max_age) {
+      occupancy_[n] = Occupancy::kUnknown;
+      ++forgotten;
     }
   }
-  return cleared;
+  return forgotten;
 }
 
 void VoxelGrid3D::clear()
 {
-  std::fill(marked_at_.begin(), marked_at_.end(), kClear);
+  std::fill(occupancy_.begin(), occupancy_.end(), Occupancy::kUnknown);
+}
+
+Occupancy VoxelGrid3D::occupancy(const Eigen::Vector3i & voxel) const
+{
+  return occupancy_[geometry_.index(voxel)];
 }
 
 bool VoxelGrid3D::occupied(const Eigen::Vector3i & voxel) const
 {
-  return marked_at_[geometry_.index(voxel)] != kClear;
+  return occupancy(voxel) == Occupancy::kOccupied;
 }
 
 std::uint8_t inflated_cost(double distance, const InflationConfig & config)
@@ -293,23 +303,13 @@ std::uint8_t inflated_cost(double distance, const InflationConfig & config)
   return static_cast<std::uint8_t>((kInscribedCost - 1) * factor);
 }
 
-CostVolume::CostVolume(const GridGeometry & geometry, std::vector<std::uint8_t> costs)
+CostVolume::CostVolume(const GridGeometry & geometry, std::vector<std::uint8_t> costs, std::vector<bool> known)
 : geometry_(geometry)
 , costs_(std::move(costs))
+, known_(std::move(known))
 {
-  if (costs_.size() != geometry_.count()) {
-    throw std::invalid_argument("A cost volume needs one cost per voxel");
-  }
-  const int size_x = geometry_.size.x();
-  const int size_y = geometry_.size.y();
-  column_min_.assign(static_cast<std::size_t>(size_x) * size_y, kLethalCost);
-  for (int k = 0; k < geometry_.size.z(); ++k) {
-    for (int j = 0; j < size_y; ++j) {
-      for (int i = 0; i < size_x; ++i) {
-        auto & lowest = column_min_[static_cast<std::size_t>(j) * size_x + i];
-        lowest = std::min(lowest, cost({i, j, k}));
-      }
-    }
+  if (costs_.size() != geometry_.count() || known_.size() != geometry_.count()) {
+    throw std::invalid_argument("A cost volume needs one cost and one known flag per voxel");
   }
 }
 
@@ -323,9 +323,9 @@ std::uint8_t CostVolume::cost(const Eigen::Vector3i & voxel) const
   return costs_[geometry_.index(voxel)];
 }
 
-std::uint8_t CostVolume::column_min(int i, int j) const
+bool CostVolume::known(const Eigen::Vector3i & voxel) const
 {
-  return column_min_[static_cast<std::size_t>(j) * geometry_.size.x() + i];
+  return known_[geometry_.index(voxel)];
 }
 
 CostVolume inflate(const VoxelGrid3D & grid, const InflationConfig & config)
@@ -342,13 +342,16 @@ CostVolume inflate(const VoxelGrid3D & grid, const InflationConfig & config)
   // Squared distance to the nearest occupied voxel, in voxel units, with z scaled to make the vehicle round
   const GridGeometry & geometry = grid.geometry();
   std::vector<double> distance_sq(geometry.count(), kInfinity);
+  std::vector<bool> known(geometry.count());
   Eigen::Vector3i voxel;
   for (voxel.z() = 0; voxel.z() < geometry.size.z(); ++voxel.z()) {
     for (voxel.y() = 0; voxel.y() < geometry.size.y(); ++voxel.y()) {
       for (voxel.x() = 0; voxel.x() < geometry.size.x(); ++voxel.x()) {
-        if (grid.occupied(voxel)) {
+        const Occupancy occupancy = grid.occupancy(voxel);
+        if (occupancy == Occupancy::kOccupied) {
           distance_sq[geometry.index(voxel)] = 0.0;
         }
+        known[geometry.index(voxel)] = occupancy != Occupancy::kUnknown;
       }
     }
   }
@@ -361,7 +364,7 @@ CostVolume inflate(const VoxelGrid3D & grid, const InflationConfig & config)
   for (std::size_t n = 0; n < costs.size(); ++n) {
     costs[n] = inflated_cost(std::sqrt(distance_sq[n]) * geometry.resolution, config);
   }
-  return CostVolume(geometry, std::move(costs));
+  return CostVolume(geometry, std::move(costs), std::move(known));
 }
 
 }  // namespace rov_nav2_plugins

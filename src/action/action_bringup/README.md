@@ -12,7 +12,7 @@ Once the vehicle is up, send a goal:
 ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 2.0, y: 1.0, z: -1.0}, orientation: {w: 1.0}}}}"
 ```
 
-To watch, connect Foxglove to the bridge address that `watod up` prints, add a 3D panel with its display frame set to `map`, and turn on `/plan`, `/odom`, `/sonar/points`, `/global_costmap/costmap` and `/global_costmap/voxel_grid` (the costmap's 3D voxels).
+To watch, connect Foxglove to the bridge address that `watod up` prints, add a 3D panel with its display frame set to `map`, and turn on `/plan`, `/odom`, `/sonar/points` and `/global_costmap/voxel_layer_3d/voxel_costs` (the 3D costs the planner routes through, colored by cost as `intensity`).
 
 | Launch argument | Default | Description |
 |-----------------|---------|-------------|

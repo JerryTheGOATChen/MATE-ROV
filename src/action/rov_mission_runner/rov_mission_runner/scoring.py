@@ -238,8 +238,8 @@ def _clearance_check(
     # How far the vehicle's center stayed outside the nearest obstacle; negative means inside
     clearance = min(
         (
-            math.hypot(x - obstacle.x, y - obstacle.y) - obstacle.radius
-            for x, y, _ in positions
+            obstacle.clearance(x, y, z)
+            for x, y, z in positions
             for obstacle in obstacles
         ),
         default=math.inf,

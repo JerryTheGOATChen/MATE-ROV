@@ -37,15 +37,16 @@ namespace rov_nav2_plugins
  * Nav2's voxel layers, and STVL, flatten every voxel into the 2D costmap, so the floor would make every
  * cell lethal and has to be filtered out. This layer keeps its own 3D grid over the costmap's x, y window
  * and from `min_z` to `max_z`, marks every return, and inflates the grid in 3D (see inflate()). The 3D
- * costs are available from cost_volume() to a 3D planner. Into the 2D costmap it writes only each
- * column's lowest cost, so a cell is blocked only when every depth in it is.
+ * costs, and which voxels the sonar has seen, are available from cost_volume() to a 3D planner in the
+ * same server. Nothing is written into the 2D costmap: the layer uses the costmap only for its window,
+ * frame, footprint and update loop.
  *
  * Parameters (under the plugin name):
  *  - `enabled` (bool, default true)
  *  - `topic` (string, default "/sonar/points"): the sensor_msgs/PointCloud2 of returns
  *  - `min_z`, `max_z` (m, default -4.4 and 0.0): the grid's vertical extent in the costmap's frame
  *  - `obstacle_range` (m, default 8.0): returns farther from the sensor are ignored
- *  - `voxel_decay` (s, default 60.0): a voxel not seen for this long is cleared
+ *  - `voxel_decay` (s, default 60.0): a voxel not seen for this long is forgotten, becoming unknown
  *  - `robot_half_height` (m, default 0.2): the vehicle's vertical half-height
  *  - `inflation_radius` (m, default 1.0) and `cost_scaling_factor` (1/m, default 3.0), as in Nav2's
  *    InflationLayer. The inscribed radius is the costmap's, from its footprint or `robot_radius`.
@@ -69,7 +70,7 @@ public:
 
   void updateCosts(nav2_costmap_2d::Costmap2D & master_grid, int min_i, int min_j, int max_i, int max_j) override;
 
-  /// The latest 3D costs, or null before the first update. The volume never changes once returned.
+  /// The latest 3D costs, or null before the costmap has a size. The volume never changes once returned.
   std::shared_ptr<const CostVolume> cost_volume() const;
 
 private:

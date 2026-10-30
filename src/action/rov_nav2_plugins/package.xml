@@ -3,7 +3,7 @@
 <package format="3">
   <name>rov_nav2_plugins</name>
   <version>0.1.0</version>
-  <description>Nav2 plugins for 3D (x, y, z, yaw) navigation of the ROV, modeled on Orca4's orca_nav2, with a planner that routes around the costmap's obstacles</description>
+  <description>Nav2 plugins for 3D (x, y, z, yaw) navigation of the ROV, modeled on Orca4's orca_nav2, with a 3D voxel costmap layer and a planner that routes over, under or around its obstacles</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
@@ -23,9 +23,6 @@
   <depend>tf2</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
-
-  <!-- Default 2D planner of CostmapPlanner3D, loaded by name at runtime -->
-  <exec_depend>nav2_smac_planner</exec_depend>
 
   <test_depend>wato_test</test_depend>
 

@@ -98,6 +98,32 @@ def test_clearance_is_checked_when_a_mission_lists_obstacles():
     ]
 
 
+def test_an_obstacle_spanning_some_depths_can_be_passed_over_or_under():
+    # The good run is at z = -0.5 where it passes (2.0, 0.1)
+    below = Obstacle(2.0, 0.5, 0.6, z_min=-3.0, z_max=-1.2)
+    above = Obstacle(2.0, 0.5, 0.6, z_min=-0.2, z_max=0.5)
+    at_depth = Obstacle(2.0, 0.5, 0.6, z_min=-0.8, z_max=-0.2)
+
+    for obstacle, failures in (
+        (below, []),
+        (above, []),
+        (at_depth, ["obstacle clearance"]),
+    ):
+        mission = dataclasses.replace(TRANSIT, obstacles=(obstacle,))
+        assert failed_checks(mission, good_run()) == failures
+
+
+def test_clearance_from_a_bounded_obstacle_is_measured_to_its_nearest_edge():
+    obstacle = Obstacle(0.0, 0.0, 1.0, z_min=-2.0, z_max=-1.0)
+
+    assert obstacle.clearance(4.0, 0.0, -1.5) == 3.0  # beside it
+    assert obstacle.clearance(0.0, 0.0, 1.0) == 2.0  # above it
+    assert (
+        obstacle.clearance(4.0, 0.0, 3.0) == 5.0
+    )  # beside and above: from its top edge
+    assert obstacle.clearance(0.0, 0.0, -1.25) == -0.25  # inside, near its top
+
+
 def test_distance_to_polyline():
     path = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 0.0, -2.0)]
 
