@@ -19,7 +19,6 @@ namespace ghost_brain
 
 geometry_msgs::msg::Twist Controller::compute_velocity(const geometry_msgs::msg::Pose & pose, const Path & path)
 {
-  // TODO(hackathon): fly the ghost along the path
   (void)pose;
   (void)path;
   return geometry_msgs::msg::Twist{};

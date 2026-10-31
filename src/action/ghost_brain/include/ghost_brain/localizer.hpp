@@ -53,6 +53,7 @@ public:
   geometry_msgs::msg::Pose pose() const { return pose_; }
 
 private:
+  rclcpp::Time previous_time;
   geometry_msgs::msg::Pose pose_;
 };
 
