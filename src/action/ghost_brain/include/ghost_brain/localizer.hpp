@@ -20,6 +20,7 @@
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
+
 namespace ghost_brain
 {
 
@@ -54,6 +55,10 @@ public:
 
 private:
   geometry_msgs::msg::Pose pose_;
+
+  double previous_velocity_time_ = 0.0;
+
+  bool have_previous_velocity_ = false;
 };
 
 }  // namespace ghost_brain

@@ -20,3 +20,5 @@ external/
 weights/
 models/
 maps/
+
+src/action/run.txt

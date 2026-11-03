@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ghost_brain/localizer.hpp"
+#include <cmath>
 
 namespace ghost_brain
 {
@@ -20,12 +21,47 @@ namespace ghost_brain
 void Localizer::reset(const geometry_msgs::msg::Pose & start)
 {
   pose_ = start;
+
+  previous_velocity_time_ = 0.0;
+  have_previous_velocity_ = false;
 }
 
 void Localizer::on_velocity(const geometry_msgs::msg::TwistStamped & velocity)
 {
   // TODO(hackathon): move pose_.position by the velocity since the last message
-  (void)velocity;
+  const double current_time = static_cast<double>(velocity.header.stamp.sec)+static_cast<double>(velocity.header.stamp.nanosec) * 1e-9;
+
+  if (!have_previous_velocity_) {
+    previous_velocity_time_ = current_time;
+    have_previous_velocity_ = true;
+    return;
+  }
+
+  const double dt = current_time - previous_velocity_time_;
+
+  previous_velocity_time_ = current_time;
+
+  if (dt <= 0.0) {
+    return;
+  }
+
+  //Extract Velocity and Orientation
+
+  const double vx = velocity.twist.linear.x;
+  const double vy = velocity.twist.linear.y;  
+  const double vz = velocity.twist.linear.z;
+
+  const auto & q = pose_.orientation;
+
+  // Convert quaternion to yaw
+  const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+
+  const double world_vx = vx * std::cos(yaw) - vy * std::sin(yaw);
+  const double world_vy = vx * std::sin(yaw) + vy * std::cos(yaw);
+  
+  pose_.position.x += world_vx * dt;
+  pose_.position.y += world_vy * dt;
+  pose_.position.z += vz * dt;
 }
 
 void Localizer::on_imu(const sensor_msgs::msg::Imu & imu)
