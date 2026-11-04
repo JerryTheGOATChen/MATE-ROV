@@ -19,6 +19,25 @@
 namespace ghost_brain
 {
 
+namespace {
+
+struct Node
+{
+  int col = 0;
+  int row = 0;
+  int index = 0;     // 1D index: row * width + col
+  double g_cost = 0.0;
+  double f_cost = 0.0; // g_cost + h_cost
+
+  // For std::priority_queue (min-heap: smallest f_cost popped first)
+  bool operator>(const Node & other) const
+  {
+    return f_cost > other.f_cost;
+  }
+};
+
+}
+
 bool is_occupied(const nav_msgs::msg::OccupancyGrid & map, double x, double y)
 {
   const double resolution = map.info.resolution;

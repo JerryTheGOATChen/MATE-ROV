@@ -50,6 +50,8 @@ bool is_occupied(const nav_msgs::msg::OccupancyGrid & map, double x, double y);
 class Planner
 {
 public:
+  static constexpr double kInflationRadius = 0.35;
+  
   /// @return the route from start to goal, or an empty path if there is none
   Path plan(
     const geometry_msgs::msg::Point & start,

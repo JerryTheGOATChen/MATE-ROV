@@ -99,9 +99,9 @@ if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
   WATCLOUD_COMPOSE_FILES=("modules/docker-compose.watcloud.yaml")
 fi
 
-declare -a TEST_PRE_COMPOSE_FILES=("modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "modules/docker-compose.dep.yaml")
+declare -a TEST_PRE_COMPOSE_FILES=("modules/docker-compose.yaml" ${WATCLOUD_COMPOSE_FILES[@]+"${WATCLOUD_COMPOSE_FILES[@]}"} "modules/docker-compose.dep.yaml")
 # Main BUILD uses dep files (for profile assignments) + test files (for test service overrides)
-declare -a TEST_ALL_COMPOSE_FILES=("modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "modules/docker-compose.dep.yaml" "modules/docker-compose.test.yaml")
+declare -a TEST_ALL_COMPOSE_FILES=("modules/docker-compose.yaml" ${WATCLOUD_COMPOSE_FILES[@]+"${WATCLOUD_COMPOSE_FILES[@]}"} "modules/docker-compose.dep.yaml" "modules/docker-compose.test.yaml")
 
 # Run tests for a service
 run_tests() {

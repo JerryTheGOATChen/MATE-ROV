@@ -109,8 +109,8 @@ if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
   WATCLOUD_COMPOSE_FILES=("-f" "modules/docker-compose.watcloud.yaml")
 fi
 
-declare -a DEFAULT_PRE_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "-f" "modules/docker-compose.dep.yaml")
-declare -a DEFAULT_ALL_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" "${WATCLOUD_COMPOSE_FILES[@]}" "-f" "modules/docker-compose.dep.yaml" "-f" "modules/docker-compose.dev.yaml")
+declare -a DEFAULT_PRE_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" ${WATCLOUD_COMPOSE_FILES[@]+"${WATCLOUD_COMPOSE_FILES[@]}"} "-f" "modules/docker-compose.dep.yaml")
+declare -a DEFAULT_ALL_COMPOSE_FILES=("-f" "modules/docker-compose.yaml" ${WATCLOUD_COMPOSE_FILES[@]+"${WATCLOUD_COMPOSE_FILES[@]}"} "-f" "modules/docker-compose.dep.yaml" "-f" "modules/docker-compose.dev.yaml")
 
 # Use custom compose files if provided, otherwise use defaults
 if [[ ${#CUSTOM_PRE_COMPOSE_FILES[@]} -gt 0 ]]; then

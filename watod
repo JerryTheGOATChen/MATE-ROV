@@ -16,6 +16,11 @@
 # SPDX‑License‑Identifier: Apache‑2.0
 set -euo pipefail
 
+# The WATonomous base image is amd64-only; on Apple Silicon run it under emulation.
+if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+  export DOCKER_DEFAULT_PLATFORM="${DOCKER_DEFAULT_PLATFORM:-linux/amd64}"
+fi
+
 programname="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
 
 # Discover monorepo directory by searching up from current directory
@@ -326,7 +331,7 @@ if [[ -n ${RUN_DOWN:-} ]]; then
     # Need to determine ACTIVE_MODULES from config (already sourced above)
     if [[ -z ${ACTIVE_MODULES+x} ]]; then
       ACTIVE_MODULES=()
-    elif [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+    elif [[ "$(declare -p ACTIVE_MODULES 2>/dev/null)" != "declare -a"* ]]; then
       # ACTIVE_MODULES is set but not an array, convert it
       # shellcheck disable=SC2128
       read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
@@ -360,7 +365,7 @@ if [[ ${#CLI_MODULES[@]} -gt 0 ]]; then
 elif [[ -z ${ACTIVE_MODULES+x} ]]; then
   # ACTIVE_MODULES not set, initialize as empty array
   ACTIVE_MODULES=()
-elif [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
+elif [[ "$(declare -p ACTIVE_MODULES 2>/dev/null)" != "declare -a"* ]]; then
   # ACTIVE_MODULES is set but not an array, convert it
   # shellcheck disable=SC2128
   read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"

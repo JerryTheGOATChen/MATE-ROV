@@ -132,7 +132,7 @@ TEST_CASE("The planner gives up on a goal inside a wall", "[.hackathon]")
   REQUIRE(planner.plan(point(2.0, 2.0), point(5.0, 4.0), room_with_wall()).empty());
 }
 
-TEST_CASE("The controller flies toward the route", "[.hackathon]")
+TEST_CASE("The controller flies toward the route", "[hackathon]")
 {
   Controller controller;
   const Path path = {point(1.0, 1.0, 1.5), point(4.0, 1.0, 2.0)};
