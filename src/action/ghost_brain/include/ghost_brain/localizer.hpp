@@ -19,6 +19,7 @@
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "builtin_interfaces/msg/time.hpp"
 
 namespace ghost_brain
 {
@@ -54,6 +55,9 @@ public:
 
 private:
   geometry_msgs::msg::Pose pose_;
+
+  builtin_interfaces::msg::Time last_velocity_stamp_;
+  bool has_last_velocity_stamp_ = false;
 };
 
 }  // namespace ghost_brain
