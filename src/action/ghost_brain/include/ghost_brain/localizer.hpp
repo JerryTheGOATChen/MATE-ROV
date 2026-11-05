@@ -14,51 +14,53 @@
 
 #pragma once
 
+#include <vector>
+
 #include "geometry_msgs/msg/pose.hpp"
+#include "haunted_house_msgs/msg/box_array.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
-
 namespace ghost_brain
 {
 
 /**
- * @brief Works out where the ghost is. This is yours to write!
+ * @brief Estimates the ghost's pose from velocity, compass, and sonar/map alignment.
  *
- * Nobody tells the ghost its position. It knows where it started (the house publishes the start
- * pose), its heading from a compass, and its velocity from something like a DVL:
- *  - /ghost/velocity: forward, left and up speed in the ghost's own frame, and its turn rate, at 25 Hz.
- *    It is a little noisy, and has a small bias that changes every game, so adding it up drifts
- *  - /ghost/imu: the heading in `orientation` (yaw only), at 25 Hz
- *  - /sonar/scan: a sonar beam sweeping a full circle once a second, a tenth of a turn per message.
- *    Each range is the distance to the nearest thing in that direction, at the ghost's height
- *
- * Some ideas, from simplest to fanciest:
- *  - Dead reckoning: turn each velocity into the map frame with the heading, and add it up over time
- *  - Spot the drift: the sonar sees the walls, and /map says where the walls really are
- *  - A particle filter, or scan matching, to correct the position with the sonar
+ * The sonar sweeps in segments. Keep a short rolling history of sonar hits so
+ * scan matching has information from more than one direction.
  */
 class Localizer
 {
 public:
-  /// Start again from a known pose. Called at the start of every game
   void reset(const geometry_msgs::msg::Pose & start);
-
   void on_velocity(const geometry_msgs::msg::TwistStamped & velocity);
   void on_imu(const sensor_msgs::msg::Imu & imu);
   void on_sonar(const sensor_msgs::msg::LaserScan & scan, const nav_msgs::msg::OccupancyGrid & map);
 
-  /// The best guess of where the ghost is, in the map frame
+  void on_depth(
+    const sensor_msgs::msg::Image & depth, const sensor_msgs::msg::CameraInfo & camera_info,
+    const haunted_house_msgs::msg::BoxArray & obstacles);
+
   geometry_msgs::msg::Pose pose() const { return pose_; }
 
 private:
+  struct SonarHit
+  {
+    double x;      // Estimated world X of detected surface
+    double y;      // Estimated world Y of detected surface
+    double stamp;  // Scan time in seconds
+  };
+
   geometry_msgs::msg::Pose pose_;
-
   double previous_velocity_time_ = 0.0;
-
   bool have_previous_velocity_ = false;
+  bool initialized_ = false;
+  std::vector<SonarHit> sonar_hits_;
 };
 
 }  // namespace ghost_brain

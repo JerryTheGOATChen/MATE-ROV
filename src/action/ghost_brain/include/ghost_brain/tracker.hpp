@@ -32,6 +32,7 @@ struct TrackedTarget
   geometry_msgs::msg::Point position;
   bool is_person{false};
   rclcpp::Time last_seen;
+  bool completed{false};
 };
 
 /// Where the camera sits on the ghost: this far forward, left and up from its center (m)
@@ -82,6 +83,13 @@ public:
     const sensor_msgs::msg::Image & depth,
     const sensor_msgs::msg::CameraInfo & camera_info,
     const geometry_msgs::msg::Pose & ghost_pose);
+
+  /// Complete the nearest unfinished target of this type within max_distance (meters).
+  bool mark_completed(
+    const geometry_msgs::msg::Point & position, bool is_person, double max_distance = 1.0);
+
+  /// Erase an attempted target; a later detection may create it again.
+  bool remove_target(const geometry_msgs::msg::Point & position, bool is_person);
 
   const std::vector<TrackedTarget> & targets() const { return targets_; }
 

@@ -58,6 +58,7 @@ GhostBrainNode::CallbackReturn GhostBrainNode::on_configure(const rclcpp_lifecyc
   using geometry_msgs::msg::TwistStamped;
   using haunted_house_msgs::msg::GameState;
   using nav_msgs::msg::OccupancyGrid;
+  using haunted_house_msgs::msg::BoxArray;
   using sensor_msgs::msg::CameraInfo;
   using sensor_msgs::msg::Image;
   using sensor_msgs::msg::Imu;
@@ -67,6 +68,7 @@ GhostBrainNode::CallbackReturn GhostBrainNode::on_configure(const rclcpp_lifecyc
   // The house publishes these once and keeps them for anyone who joins later
   const auto latched = rclcpp::QoS(1).transient_local();
   map_sub_ = create_subscription<OccupancyGrid>("map", latched, [this](const OccupancyGrid & msg) { map_ = msg; });
+  obstacles_sub_ = create_subscription<BoxArray>("haunted_house/obstacles",latched,[this](const BoxArray & msg){obstacles_ = msg;});
   start_sub_ = create_subscription<PoseStamped>("haunted_house/start_pose", latched, [this](const PoseStamped & msg) {
     if (!start_pose_) {
       localizer_.reset(msg.pose);
@@ -118,6 +120,8 @@ GhostBrainNode::CallbackReturn GhostBrainNode::on_activate(const rclcpp_lifecycl
 GhostBrainNode::CallbackReturn GhostBrainNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
   timer_.reset();
+  person_scan_.reset();
+  last_movement_time_.reset();
   publish_command(geometry_msgs::msg::Twist{});
   cmd_vel_pub_->on_deactivate();
   pose_pub_->on_deactivate();
@@ -147,12 +151,50 @@ void GhostBrainNode::on_state(const haunted_house_msgs::msg::GameState & state)
   using haunted_house_msgs::msg::GameState;
   // A new game: the ghost is back at the start, and everything has moved
   const bool new_game = state.phase == GameState::WAITING && (!state_ || state_->phase != GameState::WAITING);
-  if (new_game && start_pose_) {
-    localizer_.reset(start_pose_->pose);
+  if (new_game) {
+    if (start_pose_) {
+      localizer_.reset(start_pose_->pose);
+    }
+    person_scan_.reset();
     tracker_.reset();
     path_.clear();
     planned_goal_.reset();
+    active_target_.reset();
+    last_movement_time_.reset();
+    target_reached_since_.reset();
     RCLCPP_INFO(get_logger(), "New game: back to the start");
+  }
+  if (!new_game && state_ &&
+    (state_->phase == GameState::RUNNING) &&
+    (state.phase == GameState::RUNNING || state.phase == GameState::FINISHED))
+  {
+    const auto here = localizer_.pose().position;
+    const auto complete = [&](bool is_person, uint32_t previous, uint32_t current) {
+      for (uint32_t count = previous; count < current; ++count) {
+        // Counters have no object IDs. Only attribute collections to nearby tracks.
+        const bool completed_active = count == previous && active_target_ &&
+          active_target_->is_person == is_person &&
+          distance(here, active_target_->position) <= 0.7 &&
+          tracker_.mark_completed(active_target_->position, is_person, 0.3);
+        if (!completed_active && !tracker_.mark_completed(here, is_person)) {
+          break;
+        }
+      }
+    };
+    complete(false, state_->candies_eaten, state.candies_eaten);
+    complete(true, state_->people_haunted, state.people_haunted);
+    if (state.candies_eaten > state_->candies_eaten ||
+      state.people_haunted > state_->people_haunted)
+    {
+      path_.clear();
+      planned_goal_.reset();
+      active_target_.reset();
+      last_movement_time_.reset();
+      target_reached_since_.reset();
+      if (path_pub_ && path_pub_->is_activated()) {
+        publish_path();
+      }
+    }
   }
   state_ = state;
 }
@@ -163,6 +205,9 @@ void GhostBrainNode::on_detections(const vision_msgs::msg::Detection2DArray & de
   if (!depth_ || !camera_info_ || depth_->header.stamp != detections.header.stamp) {
     return;
   }
+  if (obstacles_) {
+    localizer_.on_depth(*depth_, *camera_info_, *obstacles_);
+  }
   tracker_.on_detections(detections, *depth_, *camera_info_, localizer_.pose());
 }
 
@@ -171,11 +216,19 @@ std::optional<TrackedTarget> GhostBrainNode::choose_target() const
   const auto here = localizer_.pose().position;
   std::optional<TrackedTarget> best;
   double best_distance = std::numeric_limits<double>::infinity();
+  int best_priority = -1;
   for (const auto & target : tracker_.targets()) {
+    if (target.completed) {
+      continue;
+    }
     const double d = distance(here, target.position);
-    if (d < best_distance) {
+    // Recently seen people take precedence over stale person locations and candy.
+    const double age = now().seconds() - target.last_seen.seconds();
+    const int priority = target.is_person ? (age >= 0.0 && age <= 0.5 ? 2 : 1) : 0;
+    if (priority > best_priority || (priority == best_priority && d < best_distance)) {
       best = target;
       best_distance = d;
+      best_priority = priority;
     }
   }
   return best;
@@ -187,23 +240,138 @@ void GhostBrainNode::update()
   if (start_pose_) {
     publish_pose();
   }
-  if (!start_pose_ || !map_ || !state_ || state_->phase != GameState::RUNNING) {
+  if (!start_pose_ || !map_ || !obstacles_ || !state_ || state_->phase != GameState::RUNNING) {
+    person_scan_.reset();
+    target_reached_since_.reset();
+    last_movement_time_.reset();
     publish_command(geometry_msgs::msg::Twist{});
     return;
   }
 
-  // TODO(hackathon): with nothing in sight, the ghost could look around, or go exploring
-  const auto target = choose_target();
+  const auto current_pose = localizer_.pose();
+  const auto & q = current_pose.orientation;
+  const double yaw = std::atan2(
+    2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  auto target = choose_target();
+  if (!person_scan_ && target && target->is_person &&
+    now().seconds() - target->last_seen.seconds() >= 1.0 &&
+    distance(current_pose.position, target->position) <= 0.6)
+  {
+    // Forget the stale location now, so it cannot be selected again after this scan.
+    tracker_.remove_target(target->position, true);
+    person_scan_ = PersonScan{now().seconds(), yaw, 0.0};
+    path_.clear();
+    planned_goal_.reset();
+    active_target_.reset();
+    target_reached_since_.reset();
+    last_movement_time_.reset();
+    publish_path();
+    RCLCPP_INFO(get_logger(), "Reached stale person location: scanning for a person");
+  }
+  if (person_scan_) {
+    std::optional<TrackedTarget> spotted;
+    double nearest = std::numeric_limits<double>::infinity();
+    for (const auto & candidate : tracker_.targets()) {
+      const double age = now().seconds() - candidate.last_seen.seconds();
+      if (!candidate.is_person || candidate.completed || age < 0.0 || age > 0.5 ||
+        candidate.last_seen.seconds() < person_scan_->started_at)
+      {
+        continue;
+      }
+      const double d = distance(current_pose.position, candidate.position);
+      if (d < nearest) {
+        nearest = d;
+        spotted = candidate;
+      }
+    }
+    const double delta = yaw - person_scan_->previous_yaw;
+    // Signed wrapped increments measure a full turn across +/-pi without accumulating noise.
+    person_scan_->rotation += std::atan2(std::sin(delta), std::cos(delta));
+    person_scan_->previous_yaw = yaw;
+    if (spotted) {
+      person_scan_.reset();
+      target = spotted;
+      RCLCPP_INFO(get_logger(), "Person spotted: resuming pursuit");
+    } else if (person_scan_->rotation >= 2.0 * std::acos(-1.0)) {
+      person_scan_.reset();
+      target = choose_target();
+      RCLCPP_INFO(get_logger(), "Full scan complete: selecting next target");
+    } else {
+      geometry_msgs::msg::Twist scan_command;
+      scan_command.angular.z = 0.8;
+      publish_command(scan_command);
+      publish_markers(std::nullopt);
+      return;  // Scanning is intentional: bypass the one-second stuck timeout.
+    }
+  }
+  if (!target || !active_target_ || target->is_person != active_target_->is_person ||
+    distance(target->position, active_target_->position) > 0.3)
+  {
+    target_reached_since_.reset();
+    last_movement_time_.reset();
+  }
+  active_target_ = target;
   if (!target) {
-    publish_command(geometry_msgs::msg::Twist{});
+    // Keep searching with the forward-facing camera when no known targets remain.
+    geometry_msgs::msg::Twist scan_command;
+    scan_command.angular.z = 0.8;
+    publish_command(scan_command);
     publish_markers(target);
     return;
   }
 
+  // Measure translation from an anchor so small localization jitter doesn't count as progress.
+  // Reset only after 20 cm of movement, rather than on every replan.
+  const auto current_time = now();
+  const auto here = localizer_.pose().position;
+  if (!last_movement_time_ || current_time < *last_movement_time_ ||
+    distance(here, movement_anchor_) >= 0.2)
+  {
+    movement_anchor_ = here;
+    last_movement_time_ = current_time;
+  }
+  if ((current_time - *last_movement_time_).seconds() >= 1.0) {
+    tracker_.remove_target(target->position, target->is_person);
+    path_.clear();
+    planned_goal_.reset();
+    active_target_.reset();
+    last_movement_time_.reset();
+    target_reached_since_.reset();
+    RCLCPP_INFO(get_logger(), "Dropping target: less than 0.2 m movement in 1 second");
+    publish_command(geometry_msgs::msg::Twist{});
+    publish_path();
+    publish_markers(std::nullopt);
+    return;
+  }
+
+  // Give the simulator time to score the attempt, then forget even an unconfirmed target.
+  // Unlike completed tracks, erased tracks can be recreated by fresh camera observations.
+  if (distance(localizer_.pose().position, target->position) <= 0.5) {
+    if (!target_reached_since_) {
+      target_reached_since_ = now();
+    }
+    if ((now() - *target_reached_since_).seconds() >= 0.75) {
+      tracker_.remove_target(target->position, target->is_person);
+      path_.clear();
+      planned_goal_.reset();
+      active_target_.reset();
+      last_movement_time_.reset();
+      target_reached_since_.reset();
+      publish_command(geometry_msgs::msg::Twist{});
+      publish_path();
+      publish_markers(std::nullopt);
+      return;
+    }
+  } else {
+    target_reached_since_.reset();
+  }
+
   // Plan again for a new target, and now and then anyway, because people keep walking
-  const bool new_goal = !planned_goal_ || distance(*planned_goal_, target->position) > 0.5;
+  const double goal_change_threshold = target->is_person ? 0.15 : 0.5;
+  const bool new_goal = !planned_goal_ ||
+    distance(*planned_goal_, target->position) > goal_change_threshold;
   if (new_goal || now() - last_plan_time_ >= replan_period_) {
-    path_ = planner_.plan(localizer_.pose().position, target->position, *map_);
+    path_ = planner_.plan(localizer_.pose().position, target->position, *map_, *obstacles_);
     planned_goal_ = target->position;
     last_plan_time_ = now();
     publish_path();
@@ -270,6 +438,9 @@ void GhostBrainNode::publish_markers(const std::optional<TrackedTarget> & target
 
   // Everything Tracker knows about: orange for people, green for candy. Add your own decorations here!
   for (const auto & tracked : tracker_.targets()) {
+    if (tracked.completed) {
+      continue;
+    }
     Marker dot = clear;
     dot.ns = "tracked";
     dot.id = static_cast<int>(msg.markers.size());
@@ -315,6 +486,7 @@ void GhostBrainNode::release_resources()
   camera_info_sub_.reset();
   detections_sub_.reset();
   map_sub_.reset();
+  obstacles_sub_.reset();
   start_sub_.reset();
   state_sub_.reset();
   cmd_vel_pub_.reset();
@@ -324,11 +496,17 @@ void GhostBrainNode::release_resources()
   tf_broadcaster_.reset();
   start_pose_.reset();
   map_.reset();
+  obstacles_.reset();
   state_.reset();
   depth_.reset();
   camera_info_.reset();
   path_.clear();
   planned_goal_.reset();
+  active_target_.reset();
+  last_movement_time_.reset();
+  target_reached_since_.reset();
+  person_scan_.reset();
+  tracker_.reset();
 }
 
 }  // namespace ghost_brain

@@ -26,6 +26,7 @@
 #include "ghost_brain/planner.hpp"
 #include "ghost_brain/tracker.hpp"
 #include "haunted_house_msgs/msg/game_state.hpp"
+#include "haunted_house_msgs/msg/box_array.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -71,7 +72,7 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  /// What to go after next. Starts as the nearest target Tracker knows about: you can do better
+  /// Prefer recently seen people, then stale person locations, then candy; nearest in each group
   std::optional<TrackedTarget> choose_target() const;
 
   void on_state(const haunted_house_msgs::msg::GameState & state);
@@ -93,6 +94,7 @@ private:
   std::optional<geometry_msgs::msg::PoseStamped> start_pose_;
   std::optional<nav_msgs::msg::OccupancyGrid> map_;
   std::optional<haunted_house_msgs::msg::GameState> state_;
+  std::optional<haunted_house_msgs::msg::BoxArray> obstacles_;
   std::optional<sensor_msgs::msg::Image> depth_;
   std::optional<sensor_msgs::msg::CameraInfo> camera_info_;
 
@@ -102,6 +104,17 @@ private:
   Planner planner_;
   Controller controller_;
   Path path_;
+  std::optional<TrackedTarget> active_target_;
+  struct PersonScan
+  {
+    double started_at;
+    double previous_yaw;
+    double rotation{0.0};
+  };
+  std::optional<PersonScan> person_scan_;
+  std::optional<rclcpp::Time> target_reached_since_;
+  std::optional<rclcpp::Time> last_movement_time_;
+  geometry_msgs::msg::Point movement_anchor_;
   std::optional<geometry_msgs::msg::Point> planned_goal_;
   rclcpp::Time last_plan_time_;
 
@@ -113,6 +126,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr detections_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
+  rclcpp::Subscription<haunted_house_msgs::msg::BoxArray>::SharedPtr obstacles_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr start_sub_;
   rclcpp::Subscription<haunted_house_msgs::msg::GameState>::SharedPtr state_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;

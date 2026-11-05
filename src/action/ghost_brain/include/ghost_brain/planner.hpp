@@ -18,6 +18,7 @@
 
 #include "geometry_msgs/msg/point.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "haunted_house_msgs/msg/box_array.hpp"
 
 namespace ghost_brain
 {
@@ -55,6 +56,12 @@ public:
     const geometry_msgs::msg::Point & start,
     const geometry_msgs::msg::Point & goal,
     const nav_msgs::msg::OccupancyGrid & map) const;
+
+  Path plan(
+    const geometry_msgs::msg::Point & start,
+    const geometry_msgs::msg::Point & goal,
+    const nav_msgs::msg::OccupancyGrid & map,
+    const haunted_house_msgs::msg::BoxArray & obstacles) const;
 };
 
 }  // namespace ghost_brain
