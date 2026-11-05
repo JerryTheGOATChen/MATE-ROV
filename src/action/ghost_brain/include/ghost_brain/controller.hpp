@@ -38,11 +38,24 @@ namespace ghost_brain
  *  - Pure pursuit: chase a point a little way down the route, so corners come out smooth
  *  - Move sideways, so the ghost does not have to face where it is going (try it backwards!)
  */
+/// Controller numbers you can tune in config/ghost_brain.yaml
+struct ControllerSettings
+{
+  // how far down the path to chase (m). Bigger is smoother, but cuts corners
+  double lookahead_dist{0.6};
+};
+
 class Controller
 {
 public:
+  void set_settings(const ControllerSettings & settings) { settings_ = settings; }
+  const ControllerSettings & settings() const { return settings_; }
+
   /// @return the velocity to send now, in the ghost's own frame. Return all zeros to stop
   geometry_msgs::msg::Twist compute_velocity(const geometry_msgs::msg::Pose & pose, const Path & path);
+
+private:
+  ControllerSettings settings_;
 };
 
 }  // namespace ghost_brain

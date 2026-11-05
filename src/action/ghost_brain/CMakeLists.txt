@@ -31,6 +31,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
@@ -44,6 +45,7 @@ add_library(ghost_brain_component SHARED
   src/localizer.cpp
   src/planner.cpp
   src/tracker.cpp
+  src/explorer.cpp
 )
 
 target_include_directories(ghost_brain_component
@@ -58,6 +60,7 @@ target_link_libraries(ghost_brain_component
     rclcpp_lifecycle::rclcpp_lifecycle
     tf2::tf2
     tf2_ros::tf2_ros
+    tf2_geometry_msgs::tf2_geometry_msgs
     ${geometry_msgs_TARGETS}
     ${haunted_house_msgs_TARGETS}
     ${nav_msgs_TARGETS}

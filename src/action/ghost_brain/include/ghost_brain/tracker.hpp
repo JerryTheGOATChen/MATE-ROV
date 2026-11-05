@@ -18,6 +18,7 @@
 
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include "rclcpp/time.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -30,8 +31,12 @@ namespace ghost_brain
 struct TrackedTarget
 {
   geometry_msgs::msg::Point position;
+  geometry_msgs::msg::Twist velocity;
+  double utility = 0;
   bool is_person{false};
+  double weighted_Sum {0.0};
   rclcpp::Time last_seen;
+  int miss_count = 0;
 };
 
 /// Where the camera sits on the ghost: this far forward, left and up from its center (m)
@@ -71,12 +76,24 @@ float depth_at(const sensor_msgs::msg::Image & depth, int u, int v);
  *  - Forget targets when you collect them (the score in /haunted_house/state goes up), or when you
  *    look where one should be and it isn't there
  */
+/// Tracker numbers you can tune in config/ghost_brain.yaml
+struct TrackerSettings
+{
+  // how much a new sighting moves a person's position (0 = ignore it, 1 = jump to it)
+  double alpha{0.5};
+  // how fast a person's speed reacts to a new sighting
+  double beta{0.2};
+};
+
 class Tracker
 {
 public:
+  void set_settings(const TrackerSettings & settings) { settings_ = settings; }
+  const TrackerSettings & settings() const { return settings_; }
+
   /// Forget everything. Called at the start of every game
   void reset();
-
+  void on_collected(bool is_person, const geometry_msgs::msg::Point& ghost_position);
   void on_detections(
     const vision_msgs::msg::Detection2DArray & detections,
     const sensor_msgs::msg::Image & depth,
@@ -87,6 +104,7 @@ public:
 
 private:
   std::vector<TrackedTarget> targets_;
+  TrackerSettings settings_;
 };
 
 }  // namespace ghost_brain

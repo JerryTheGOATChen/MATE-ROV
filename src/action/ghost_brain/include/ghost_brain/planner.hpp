@@ -47,14 +47,43 @@ bool is_occupied(const nav_msgs::msg::OccupancyGrid & map, double x, double y);
  *  - Go 3D: /haunted_house/obstacles lists every wall and piece of furniture as a 3D box, and
  *    a lot of furniture can be flown over or under
  */
+/// Planner numbers you can tune in config/ghost_brain.yaml
+struct PlannerSettings
+{
+  // how far to keep the ghost's center from anything blocked (m)
+  double inflation_radius;
+};
+
 class Planner
 {
 public:
+  Planner();
+  void set_settings(const PlannerSettings & settings);
+  const PlannerSettings & settings() const { return settings_; }
+
   /// @return the route from start to goal, or an empty path if there is none
   Path plan(
     const geometry_msgs::msg::Point & start,
     const geometry_msgs::msg::Point & goal,
     const nav_msgs::msg::OccupancyGrid & map) const;
+
+    //How far to fly from start to any point on map
+  std::vector<double> distances_from(
+    const geometry_msgs::msg::Point & start,
+    const nav_msgs::msg::OccupancyGrid & map) const;
+
+private:
+  // Inflation of map, treat ghost as a point
+  const nav_msgs::msg::OccupancyGrid & inflated(const nav_msgs::msg::OccupancyGrid & map) const;
+  mutable nav_msgs::msg::OccupancyGrid inflated_source_;
+  mutable nav_msgs::msg::OccupancyGrid inflated_;
+  PlannerSettings settings_;
 };
+
+/// Flying distance to a point
+double distance_at(
+  const std::vector<double> & distances,
+  const nav_msgs::msg::OccupancyGrid & map,
+  const geometry_msgs::msg::Point & point);
 
 }  // namespace ghost_brain

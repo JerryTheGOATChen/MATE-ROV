@@ -14,14 +14,18 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "ghost_brain/controller.hpp"
+#include "ghost_brain/explorer.hpp"
 #include "ghost_brain/localizer.hpp"
 #include "ghost_brain/planner.hpp"
 #include "ghost_brain/tracker.hpp"
@@ -71,8 +75,10 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  /// What to go after next. Starts as the nearest target Tracker knows about: you can do better
+  /// What to go after next
   std::optional<TrackedTarget> choose_target() const;
+  // where to fly to catch a target, candy is chill, person u gotta intercept
+  geometry_msgs::msg::Point intercept(const TrackedTarget & target) const;
 
   void on_state(const haunted_house_msgs::msg::GameState & state);
   void on_detections(const vision_msgs::msg::Detection2DArray & detections);
@@ -80,12 +86,19 @@ private:
   void publish_command(const geometry_msgs::msg::Twist & twist);
   void publish_pose();
   void publish_path();
+  void publish_explored();
   void publish_markers(const std::optional<TrackedTarget> & target);
+  // our own ghost: body, glowing eyes, trail, and BOO/YUM pop-ups
+  void draw_ghost(visualization_msgs::msg::MarkerArray & msg);
   void release_resources();
 
   // Parameters
   double control_rate_hz_{20.0};
   rclcpp::Duration replan_period_{rclcpp::Duration::from_seconds(0.5)};
+  // switch targets only when the new one is this many times better
+  double hysteresis_{1.3};
+  // lead a person by at most this long (s)
+  double intercept_max_time_{2.0};
   std::string map_frame_;
   std::string base_frame_;
 
@@ -102,8 +115,28 @@ private:
   Planner planner_;
   Controller controller_;
   Path path_;
+  Explorer explorer_;
+
   std::optional<geometry_msgs::msg::Point> planned_goal_;
   rclcpp::Time last_plan_time_;
+  std::vector<double> distances_;
+  rclcpp::Time last_flood_time_;
+  std::optional<TrackedTarget> current_target_;
+  std::vector<std::pair<geometry_msgs::msg::Point, rclcpp::Time>> blacklist_;
+  rclcpp::Time last_explored_time_;
+
+  // Style: where the ghost has been lately, the BOO/YUM pop-ups, and the last catch (the eyes flash)
+  struct Pop
+  {
+    std::string text;
+    geometry_msgs::msg::Point at;
+    rclcpp::Time when;
+    bool is_person;
+  };
+  std::deque<std::pair<rclcpp::Time, geometry_msgs::msg::Point>> trail_;
+  std::vector<Pop> pops_;
+  std::optional<rclcpp::Time> last_catch_time_;
+  bool last_catch_person_{false};
 
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_sub_;
@@ -119,6 +152,7 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::OccupancyGrid>::SharedPtr explored_pub_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 };
 
