@@ -52,6 +52,9 @@ const std_msgs::msg::ColorRGBA kHauntColor = rgba(1.0f, 0.2f, 0.2f, 1.0f);
 const std_msgs::msg::ColorRGBA kCandyColor = rgba(1.0f, 0.85f, 0.2f, 1.0f);
 constexpr double kFlashTime = 0.8;   // s for the eyes to fade back
 constexpr double kTrailTime = 3.0;   // s of trail
+constexpr double kTrailWidth = 0.55;  // m, as wide as the ghost's sheet
+constexpr size_t kTrailPieces = 10;   // the fade goes in this many steps
+constexpr double kTrailGap = 0.35;    // m, the trail starts this far behind the ghost's center
 constexpr double kPopTime = 1.5;     // s a BOO/YUM floats before it's gone
 
 // a blend of two colours: 0 = all a, 1 = all b
@@ -127,6 +130,12 @@ GhostBrainNode::CallbackReturn GhostBrainNode::on_configure(const rclcpp_lifecyc
   // The house publishes these once and keeps them for anyone who joins later
   const auto latched = rclcpp::QoS(1).transient_local();
   map_sub_ = create_subscription<OccupancyGrid>("map", latched, [this](const OccupancyGrid & msg) { map_ = msg; });
+  // The same house in 3D, for candy on furniture
+  obstacles_sub_ = create_subscription<haunted_house_msgs::msg::BoxArray>(
+    "haunted_house/obstacles", latched, [this](const haunted_house_msgs::msg::BoxArray & msg) {
+      planner_.set_obstacles(msg);
+      reach_cache_.clear();
+    });
   start_sub_ = create_subscription<PoseStamped>("haunted_house/start_pose", latched, [this](const PoseStamped & msg) {
     if (!start_pose_) {
       localizer_.reset(msg.pose);
@@ -235,6 +244,8 @@ void GhostBrainNode::on_state(const haunted_house_msgs::msg::GameState & state)
     trail_.clear();
     pops_.clear();
     last_catch_time_.reset();
+    // candy moves a little every game
+    reach_cache_.clear();
     RCLCPP_INFO(get_logger(), "New game: back to the start");
   }
   if (state_ && state_->phase == GameState::WAITING && state.phase == GameState::RUNNING) {
@@ -296,6 +307,12 @@ std::optional<TrackedTarget> GhostBrainNode::choose_target() const
       score *= std::max(0.0, 1.0 - (now_s - target.last_seen.seconds()) / 10.0);
     }
     double path_length = distance_at(distances_, *map_, target.position);
+    // Candy on furniture: the 2D map can't get there, but flying in over (or under) it might
+    if (!std::isfinite(path_length) && !target.is_person) {
+      if (const auto way = furniture_reach(target.position)) {
+        path_length = distance_at(distances_, *map_, way->approach) + distance(way->approach, way->hover);
+      }
+    }
     if (!std::isfinite(path_length)) {
       continue;  // can't get there
     }
@@ -367,6 +384,23 @@ geometry_msgs::msg::Point GhostBrainNode::intercept(const TrackedTarget & target
   return aim;
 }
 
+std::optional<Reach> GhostBrainNode::furniture_reach(const geometry_msgs::msg::Point & candy) const
+{
+  // need the 3D house and a flood first, or there's nothing to work it out from (don't cache that)
+  if (!planner_.has_obstacles() || !map_ || distances_.empty()) {
+    return std::nullopt;
+  }
+  // worked it out already? The tracker's guess of the candy moves a little as it averages, so near is the same
+  for (const auto & [spot, way] : reach_cache_) {
+    if (distance(spot, candy) < 0.15) {
+      return way;
+    }
+  }
+  const auto way = planner_.reach(candy, distances_, *map_);
+  reach_cache_.emplace_back(candy, way);
+  return way;
+}
+
 void GhostBrainNode::update()
 {
   using haunted_house_msgs::msg::GameState;
@@ -418,12 +452,29 @@ void GhostBrainNode::update()
   //Clamp Z above 0.45m above so then it doesn't bonk
   aim->z = std::clamp(aim->z, 0.45, 2.55);
 
+  // Candy on furniture: aim beside the furniture at hover height instead, then slide in at the end
+  std::optional<Reach> way;
+  if (target && !target->is_person && !std::isfinite(distance_at(distances_, *map_, target->position))) {
+    way = furniture_reach(target->position);
+    if (way) {
+      *aim = way->approach;
+    }
+  }
+
   // Plan again for a new target, and now and then anyway, because people keep walking
   const bool new_goal = !planned_goal_ || distance(*planned_goal_, *aim) > 0.5;
   // Final approach: close to a person, replan every tick so we don't overshoot
   const bool close_person = target && target->is_person && distance(localizer_.pose().position, *aim) < 2.0;
   if (new_goal || close_person || now() - last_plan_time_ >= replan_period_) {
-    path_ = planner_.plan(localizer_.pose().position, *aim, *map_);
+    if (way && planner_.line_clear(localizer_.pose().position, way->hover)) {
+      // nothing in the way in 3D: fly straight to the hover spot (this is the slide in, too)
+      path_ = {localizer_.pose().position, way->hover};
+    } else {
+      path_ = planner_.plan(localizer_.pose().position, *aim, *map_);
+      if (way && !path_.empty()) {
+        path_.push_back(way->hover);
+      }
+    }
     planned_goal_ = *aim;
     last_plan_time_ = now();
     publish_path();
@@ -593,24 +644,33 @@ void GhostBrainNode::draw_ghost(visualization_msgs::msg::MarkerArray & msg)
     add_part(Marker::SPHERE, 0.22, side, 0.17, breathe, breathe, breathe * 1.3, halo);
   }
 
-  // Trail: where it's been, in the map, fading out toward the tail
-  if (trail_.size() >= 2) {
-    Marker trail;
-    trail.header.stamp = stamp;
-    trail.header.frame_id = map_frame_;
-    trail.ns = "trail";
-    trail.id = static_cast<int>(msg.markers.size());
-    trail.type = Marker::LINE_STRIP;
-    trail.action = Marker::ADD;
-    trail.pose.orientation.w = 1.0;
-    trail.scale.x = 0.08;
-    for (size_t i = 0; i < trail_.size(); ++i) {
-      trail.points.push_back(trail_[i].second);
-      std_msgs::msg::ColorRGBA color = kGlowColor;
-      color.a = static_cast<float>(0.8 * static_cast<double>(i) / static_cast<double>(trail_.size() - 1));
-      trail.colors.push_back(color);
+  // Trail: where it's been, in the map, fading out toward the tail. Drawn as a few pieces with one
+  // colour each, since per-point colours on a line came out black in Foxglove
+  // start it behind the ghost, not on top of it: skip the newest points that are still under the ghost
+  size_t n = trail_.size();
+  while (n >= 2 && distance(trail_[n - 1].second, trail_.back().second) < kTrailGap) {
+    --n;
+  }
+  if (n >= 2) {
+    const size_t pieces = std::min(kTrailPieces, n - 1);
+    for (size_t piece = 0; piece < pieces; ++piece) {
+      Marker trail;
+      trail.header.stamp = stamp;
+      trail.header.frame_id = map_frame_;
+      trail.ns = "trail";
+      trail.id = static_cast<int>(msg.markers.size());
+      trail.type = Marker::LINE_STRIP;
+      trail.action = Marker::ADD;
+      trail.pose.orientation.w = 1.0;
+      trail.scale.x = kTrailWidth;
+      trail.color = kGlowColor;
+      trail.color.a = static_cast<float>(0.8 * static_cast<double>(piece + 1) / static_cast<double>(pieces));
+      // neighbouring pieces share an end point, so there are no gaps
+      for (size_t i = piece * (n - 1) / pieces; i <= (piece + 1) * (n - 1) / pieces; ++i) {
+        trail.points.push_back(trail_[i].second);
+      }
+      msg.markers.push_back(trail);
     }
-    msg.markers.push_back(trail);
   }
 
   // BOO / YUM: float up from where the catch happened and fade out
@@ -648,6 +708,7 @@ void GhostBrainNode::release_resources()
   camera_info_sub_.reset();
   detections_sub_.reset();
   map_sub_.reset();
+  obstacles_sub_.reset();
   start_sub_.reset();
   state_sub_.reset();
   cmd_vel_pub_.reset();

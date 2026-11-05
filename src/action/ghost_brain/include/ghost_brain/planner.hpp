@@ -14,9 +14,11 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "haunted_house_msgs/msg/box_array.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace ghost_brain
@@ -54,6 +56,13 @@ struct PlannerSettings
   double inflation_radius;
 };
 
+// Too lazy to write voxel grid, so this will do beside the furniture at hover height, then slide straight in to `hover`
+struct Reach
+{
+  geometry_msgs::msg::Point approach;
+  geometry_msgs::msg::Point hover;
+};
+
 class Planner
 {
 public:
@@ -72,12 +81,28 @@ public:
     const geometry_msgs::msg::Point & start,
     const nav_msgs::msg::OccupancyGrid & map) const;
 
+  // Candy on furniture: the house in 3D, from /haunted_house/obstacles
+  void set_obstacles(const haunted_house_msgs::msg::BoxArray & boxes);
+  bool has_obstacles() const { return !boxes_.empty(); }
+  // how far a point is from the nearest wall, furniture, floor or ceiling, in 3D (m)
+  double clearance(const geometry_msgs::msg::Point & point) const;
+  // whether the ghost can fly the straight line a -> b without touching anything, in 3D
+  bool line_clear(const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b) const;
+  // the cheapest safe way to a candy the 2D route can't reach,
+  std::optional<Reach> reach(
+    const geometry_msgs::msg::Point & candy,
+    const std::vector<double> & distances,
+    const nav_msgs::msg::OccupancyGrid & map) const;
+
 private:
   // Inflation of map, treat ghost as a point
   const nav_msgs::msg::OccupancyGrid & inflated(const nav_msgs::msg::OccupancyGrid & map) const;
   mutable nav_msgs::msg::OccupancyGrid inflated_source_;
   mutable nav_msgs::msg::OccupancyGrid inflated_;
   PlannerSettings settings_;
+  // every wall and piece of furniture as a 3D box, and the ceiling 
+  std::vector<haunted_house_msgs::msg::Box> boxes_;
+  double ceiling_{3.0};
 };
 
 /// Flying distance to a point

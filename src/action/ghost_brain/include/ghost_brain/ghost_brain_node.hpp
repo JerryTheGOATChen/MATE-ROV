@@ -88,6 +88,8 @@ private:
   void publish_path();
   void publish_explored();
   void publish_markers(const std::optional<TrackedTarget> & target);
+  // the way to a candy on (or under) furniture, worked out once per candy. Nothing if there's no safe way
+  std::optional<Reach> furniture_reach(const geometry_msgs::msg::Point & candy) const;
   // our own ghost: body, glowing eyes, trail, and BOO/YUM pop-ups
   void draw_ghost(visualization_msgs::msg::MarkerArray & msg);
   void release_resources();
@@ -125,6 +127,9 @@ private:
   std::vector<std::pair<geometry_msgs::msg::Point, rclcpp::Time>> blacklist_;
   rclcpp::Time last_explored_time_;
 
+  // Candy on furniture: each candy's way in, worked out once (candy doesn't move)
+  mutable std::vector<std::pair<geometry_msgs::msg::Point, std::optional<Reach>>> reach_cache_;
+
   // Style: where the ghost has been lately, the BOO/YUM pop-ups, and the last catch (the eyes flash)
   struct Pop
   {
@@ -146,6 +151,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr detections_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
+  rclcpp::Subscription<haunted_house_msgs::msg::BoxArray>::SharedPtr obstacles_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr start_sub_;
   rclcpp::Subscription<haunted_house_msgs::msg::GameState>::SharedPtr state_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;

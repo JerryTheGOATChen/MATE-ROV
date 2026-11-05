@@ -73,6 +73,23 @@ int nearest_free_cell(const nav_msgs::msg::OccupancyGrid & inflated, int col, in
   return best;
 }
 
+// Candy on furniture
+// hover at most this far from the candy (the catch radius is 0.5, minus room for tracking error)
+constexpr double kReachRadius = 0.45;
+// hover heights stay inside the aim limits, off the floor and the ceiling
+constexpr double kLowestHover = 0.45;
+constexpr double kHighestHover = 2.55;
+// how far out from the hover spot to look for somewhere the 2D route can get to, in steps of this
+constexpr double kReachSearch = 1.5;
+constexpr double kReachStep = 0.05;
+// and in this many directions
+constexpr int kReachRays = 24;
+
+double distance3(const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b)
+{
+  return std::hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
 }  // namespace
 
 // kInflationRadius is the default, until the yaml says otherwise
@@ -383,6 +400,114 @@ double distance_at(
       const double step = std::hypot(nx - col, ny - row) * resolution;
       if (step <= kMaxSnapDistance) {
         best = std::min(best, distances[ny * width + nx] + step);
+      }
+    }
+  }
+  return best;
+}
+
+void Planner::set_obstacles(const haunted_house_msgs::msg::BoxArray & boxes)
+{
+  boxes_ = boxes.boxes;
+  ceiling_ = 0.0;
+  for (const auto & box : boxes_) {
+    ceiling_ = std::max(ceiling_, box.max.z);
+  }
+}
+
+double Planner::clearance(const geometry_msgs::msg::Point & point) const
+{
+  // the floor and the ceiling count too
+  double nearest = std::min(point.z, ceiling_ - point.z);
+  for (const auto & box : boxes_) {
+    // how far outside the box on each axis (0 if it's level with the box on that axis)
+    const double dx = std::max({box.min.x - point.x, 0.0, point.x - box.max.x});
+    const double dy = std::max({box.min.y - point.y, 0.0, point.y - box.max.y});
+    const double dz = std::max({box.min.z - point.z, 0.0, point.z - box.max.z});
+    nearest = std::min(nearest, std::hypot(dx, dy, dz));
+  }
+  return nearest;
+}
+
+bool Planner::line_clear(const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b) const
+{
+  const int steps = std::max(1, static_cast<int>(std::ceil(distance3(a, b) / kReachStep)));
+  for (int i = 0; i <= steps; ++i) {
+    const double t = static_cast<double>(i) / steps;
+    geometry_msgs::msg::Point p;
+    p.x = a.x + t * (b.x - a.x);
+    p.y = a.y + t * (b.y - a.y);
+    p.z = a.z + t * (b.z - a.z);
+    // the same margin the 2D map gets
+    if (clearance(p) < settings_.inflation_radius) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::optional<Reach> Planner::reach(
+  const geometry_msgs::msg::Point & candy,
+  const std::vector<double> & distances,
+  const nav_msgs::msg::OccupancyGrid & map) const
+{
+  const int width = static_cast<int>(map.info.width);
+  const int height = static_cast<int>(map.info.height);
+  if (boxes_.empty() || distances.size() != map.data.size()) {
+    return std::nullopt;
+  }
+  const double margin = settings_.inflation_radius;
+  // the flood's distance at a point's own cell. Infinite = the 2D route can't get there
+  const auto flood_at = [&](double x, double y) {
+    const int col = static_cast<int>(std::floor((x - map.info.origin.position.x) / map.info.resolution));
+    const int row = static_cast<int>(std::floor((y - map.info.origin.position.y) / map.info.resolution));
+    if (col < 0 || row < 0 || col >= width || row >= height) {
+      return std::numeric_limits<double>::infinity();
+    }
+    return distances[row * width + col];
+  };
+
+  // Where the ghost could hover and still eat it: above it, level with it or below it (
+  std::vector<std::pair<double, double>> nudges = {{0.0, 0.0}};
+  for (const double out : {0.15, 0.3}) {
+    for (int k = 0; k < 8; ++k) {
+      nudges.emplace_back(out * std::cos(k * M_PI / 4.0), out * std::sin(k * M_PI / 4.0));
+    }
+  }
+
+  std::optional<Reach> best;
+  double best_cost = std::numeric_limits<double>::infinity();
+  for (const double up : {0.35, 0.2, 0.0, -0.2, -0.35}) {
+    for (const auto & [nx, ny] : nudges) {
+      geometry_msgs::msg::Point hover = candy;
+      hover.x += nx;
+      hover.y += ny;
+      hover.z += up;
+      if (hover.z < kLowestHover || hover.z > kHighestHover || distance3(hover, candy) > kReachRadius ||
+        clearance(hover) < margin)
+      {
+        continue;
+      }
+      // Walk straight out from the hover spot until the 2D route can get there
+      for (int ray = 0; ray < kReachRays; ++ray) {
+        const double angle = 2.0 * M_PI * ray / kReachRays;
+        geometry_msgs::msg::Point spot = hover;
+        for (double r = kReachStep; r <= kReachSearch; r += kReachStep) {
+          spot.x = hover.x + r * std::cos(angle);
+          spot.y = hover.y + r * std::sin(angle);
+          if (clearance(spot) < margin) {
+            break;  // something in the way
+          }
+          const double flood = flood_at(spot.x, spot.y);
+          if (std::isfinite(flood)) {
+            // cheapest = shortest flight there plus the slide in
+            if (flood + r < best_cost) {
+              best_cost = flood + r;
+              best = Reach{spot, hover};
+            }
+            break;
+          }
+        }
       }
     }
   }
