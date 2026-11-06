@@ -4,7 +4,7 @@
 
 ## 👻 Ghost brain demo (team/alex-team)
 
-Our ghost scoring **68 points** (all 6 people haunted, 8 candies, 0 bonks) in a full 2-minute game, using only its own sensors. The view is top-down: purple is the ghost, red dots are people, orange dots are candy, the red X is the brain's current target and the dashed line is its planned route.
+My ghost scoring **68 points** (all 6 people haunted, 8 candies, 0 bonks) in a full 2-minute game, using only its own sensors. The view is top-down: purple is the ghost, red dots are people, orange dots are candy, the red X is the brain's current target and the dashed line is its planned route.
 
 ![Ghost brain run, score 68](docs/ghost_run_68.gif)
 
