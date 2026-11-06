@@ -103,15 +103,9 @@ private:
   Tracker tracker_;
   Planner planner_;
   Controller controller_;
+  Explorer explorer_;
   Path path_;
   std::optional<TrackedTarget> active_target_;
-  struct PersonScan
-  {
-    double started_at;
-    double previous_yaw;
-    double rotation{0.0};
-  };
-  std::optional<PersonScan> person_scan_;
   std::optional<rclcpp::Time> target_reached_since_;
   std::optional<rclcpp::Time> last_movement_time_;
   geometry_msgs::msg::Point movement_anchor_;

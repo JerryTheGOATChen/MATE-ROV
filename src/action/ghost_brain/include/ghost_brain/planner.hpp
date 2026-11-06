@@ -14,9 +14,14 @@
 
 #pragma once
 
+#include <map>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "haunted_house_msgs/msg/box_array.hpp"
 
@@ -62,6 +67,42 @@ public:
     const geometry_msgs::msg::Point & goal,
     const nav_msgs::msg::OccupancyGrid & map,
     const haunted_house_msgs::msg::BoxArray & obstacles) const;
+};
+
+/// Left-wall exploration with a coverage-based escape from closed circuits and stalls.
+class Explorer
+{
+public:
+  geometry_msgs::msg::Twist update(
+    const geometry_msgs::msg::Pose & pose,
+    const nav_msgs::msg::OccupancyGrid & map, double time);
+  void reset();
+  /// Cancel exploration navigation when pursuing a target, retaining coverage memory.
+  void interrupt();
+  const Path & path() const { return path_; }
+  bool escaping() const { return escape_goal_.has_value(); }
+
+private:
+  struct Visit
+  {
+    geometry_msgs::msg::Point position;
+    double yaw;
+    double time;
+    double travel;
+  };
+  bool start_escape(
+    const geometry_msgs::msg::Point & here,
+    const nav_msgs::msg::OccupancyGrid & map, double time);
+  std::map<std::pair<int, int>, unsigned> coverage_;
+  std::vector<Visit> history_;
+  std::optional<Visit> progress_;
+  std::optional<geometry_msgs::msg::Point> escape_goal_;
+  double escape_started_{0.0};
+  double last_plan_{0.0};
+  double travel_{0.0};
+  bool following_wall_{false};
+  Path path_;
+  Planner planner_;
 };
 
 }  // namespace ghost_brain

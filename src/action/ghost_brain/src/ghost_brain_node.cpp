@@ -120,7 +120,7 @@ GhostBrainNode::CallbackReturn GhostBrainNode::on_activate(const rclcpp_lifecycl
 GhostBrainNode::CallbackReturn GhostBrainNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
   timer_.reset();
-  person_scan_.reset();
+  explorer_.interrupt();
   last_movement_time_.reset();
   publish_command(geometry_msgs::msg::Twist{});
   cmd_vel_pub_->on_deactivate();
@@ -155,8 +155,8 @@ void GhostBrainNode::on_state(const haunted_house_msgs::msg::GameState & state)
     if (start_pose_) {
       localizer_.reset(start_pose_->pose);
     }
-    person_scan_.reset();
     tracker_.reset();
+    explorer_.reset();
     path_.clear();
     planned_goal_.reset();
     active_target_.reset();
@@ -182,7 +182,11 @@ void GhostBrainNode::on_state(const haunted_house_msgs::msg::GameState & state)
       }
     };
     complete(false, state_->candies_eaten, state.candies_eaten);
-    complete(true, state_->people_haunted, state.people_haunted);
+    if (state.people_haunted > state_->people_haunted) {
+      // Counters have no object IDs; use the ghost's position at the confirmed haunt.
+      // Clear nearby stale tracks while retaining more distant people to pursue.
+      tracker_.reset_people(here, 2.0);
+    }
     if (state.candies_eaten > state_->candies_eaten ||
       state.people_haunted > state_->people_haunted)
     {
@@ -222,9 +226,9 @@ std::optional<TrackedTarget> GhostBrainNode::choose_target() const
       continue;
     }
     const double d = distance(here, target.position);
-    // Recently seen people take precedence over stale person locations and candy.
+    // Chase recently seen people first, then old person locations, then candy.
     const double age = now().seconds() - target.last_seen.seconds();
-    const int priority = target.is_person ? (age >= 0.0 && age <= 0.5 ? 2 : 1) : 0;
+    const int priority = target.is_person ? (age >= 0.0 && age <= 1.0 ? 2 : 1) : 0;
     if (priority > best_priority || (priority == best_priority && d < best_distance)) {
       best = target;
       best_distance = d;
@@ -241,69 +245,17 @@ void GhostBrainNode::update()
     publish_pose();
   }
   if (!start_pose_ || !map_ || !obstacles_ || !state_ || state_->phase != GameState::RUNNING) {
-    person_scan_.reset();
+    explorer_.interrupt();
     target_reached_since_.reset();
     last_movement_time_.reset();
     publish_command(geometry_msgs::msg::Twist{});
     return;
   }
 
-  const auto current_pose = localizer_.pose();
-  const auto & q = current_pose.orientation;
-  const double yaw = std::atan2(
-    2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
   auto target = choose_target();
-  if (!person_scan_ && target && target->is_person &&
-    now().seconds() - target->last_seen.seconds() >= 1.0 &&
-    distance(current_pose.position, target->position) <= 0.6)
-  {
-    // Forget the stale location now, so it cannot be selected again after this scan.
-    tracker_.remove_target(target->position, true);
-    person_scan_ = PersonScan{now().seconds(), yaw, 0.0};
-    path_.clear();
-    planned_goal_.reset();
-    active_target_.reset();
-    target_reached_since_.reset();
-    last_movement_time_.reset();
-    publish_path();
-    RCLCPP_INFO(get_logger(), "Reached stale person location: scanning for a person");
-  }
-  if (person_scan_) {
-    std::optional<TrackedTarget> spotted;
-    double nearest = std::numeric_limits<double>::infinity();
-    for (const auto & candidate : tracker_.targets()) {
-      const double age = now().seconds() - candidate.last_seen.seconds();
-      if (!candidate.is_person || candidate.completed || age < 0.0 || age > 0.5 ||
-        candidate.last_seen.seconds() < person_scan_->started_at)
-      {
-        continue;
-      }
-      const double d = distance(current_pose.position, candidate.position);
-      if (d < nearest) {
-        nearest = d;
-        spotted = candidate;
-      }
-    }
-    const double delta = yaw - person_scan_->previous_yaw;
-    // Signed wrapped increments measure a full turn across +/-pi without accumulating noise.
-    person_scan_->rotation += std::atan2(std::sin(delta), std::cos(delta));
-    person_scan_->previous_yaw = yaw;
-    if (spotted) {
-      person_scan_.reset();
-      target = spotted;
-      RCLCPP_INFO(get_logger(), "Person spotted: resuming pursuit");
-    } else if (person_scan_->rotation >= 2.0 * std::acos(-1.0)) {
-      person_scan_.reset();
-      target = choose_target();
-      RCLCPP_INFO(get_logger(), "Full scan complete: selecting next target");
-    } else {
-      geometry_msgs::msg::Twist scan_command;
-      scan_command.angular.z = 0.8;
-      publish_command(scan_command);
-      publish_markers(std::nullopt);
-      return;  // Scanning is intentional: bypass the one-second stuck timeout.
-    }
-  }
+  const double target_age = target ? now().seconds() - target->last_seen.seconds() : -1.0;
+  const bool chasing_person = target && target->is_person &&
+    target_age >= 0.0 && target_age <= 1.0;
   if (!target || !active_target_ || target->is_person != active_target_->is_person ||
     distance(target->position, active_target_->position) > 0.3)
   {
@@ -312,13 +264,16 @@ void GhostBrainNode::update()
   }
   active_target_ = target;
   if (!target) {
-    // Keep searching with the forward-facing camera when no known targets remain.
-    geometry_msgs::msg::Twist scan_command;
-    scan_command.angular.z = 0.8;
-    publish_command(scan_command);
+    planned_goal_.reset();
+    last_movement_time_.reset();
+    const auto command = explorer_.update(localizer_.pose(), *map_, now().seconds());
+    path_ = explorer_.path();
+    publish_command(command);
+    publish_path();
     publish_markers(target);
     return;
   }
+  explorer_.interrupt();
 
   // Measure translation from an anchor so small localization jitter doesn't count as progress.
   // Reset only after 20 cm of movement, rather than on every replan.
@@ -330,7 +285,13 @@ void GhostBrainNode::update()
     movement_anchor_ = here;
     last_movement_time_ = current_time;
   }
-  if ((current_time - *last_movement_time_).seconds() >= 1.0) {
+  if (chasing_person && (current_time - *last_movement_time_).seconds() >= 1.0) {
+    // Refresh a blocked pursuit route without dropping a person still in view.
+    planned_goal_.reset();
+    movement_anchor_ = here;
+    last_movement_time_ = current_time;
+  }
+  if (!chasing_person && (current_time - *last_movement_time_).seconds() >= 1.0) {
     tracker_.remove_target(target->position, target->is_person);
     path_.clear();
     planned_goal_.reset();
@@ -346,7 +307,7 @@ void GhostBrainNode::update()
 
   // Give the simulator time to score the attempt, then forget even an unconfirmed target.
   // Unlike completed tracks, erased tracks can be recreated by fresh camera observations.
-  if (distance(localizer_.pose().position, target->position) <= 0.5) {
+  if (!chasing_person && distance(localizer_.pose().position, target->position) <= 0.5) {
     if (!target_reached_since_) {
       target_reached_since_ = now();
     }
@@ -505,8 +466,8 @@ void GhostBrainNode::release_resources()
   active_target_.reset();
   last_movement_time_.reset();
   target_reached_since_.reset();
-  person_scan_.reset();
   tracker_.reset();
+  explorer_.reset();
 }
 
 }  // namespace ghost_brain

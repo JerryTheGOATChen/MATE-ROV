@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ghost_brain/planner.hpp"
+#include "ghost_brain/controller.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -616,6 +617,224 @@ Path Planner::plan(
 {
   // Full 3D A* using the house's exact 3D obstacle boxes.
   return run_astar(start, goal, map, &obstacles);
+}
+
+}  // namespace ghost_brain
+
+namespace ghost_brain
+{
+namespace
+{
+constexpr double kPi = 3.14159265358979323846;
+constexpr double kClearance = 0.36;
+
+double exploration_distance(const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b)
+{
+  return std::hypot(a.x - b.x, a.y - b.y);
+}
+
+std::pair<int, int> cell(const geometry_msgs::msg::Point & p)
+{
+  return {static_cast<int>(std::floor(p.x)), static_cast<int>(std::floor(p.y))};
+}
+
+// Check the entire footprint against occupied cells, including map boundaries.
+bool clear(const nav_msgs::msg::OccupancyGrid & map, double x, double y)
+{
+  const double r = map.info.resolution;
+  const double ox = map.info.origin.position.x;
+  const double oy = map.info.origin.position.y;
+  for (int row = static_cast<int>(std::floor((y - kClearance - oy) / r));
+    row <= static_cast<int>(std::floor((y + kClearance - oy) / r)); ++row)
+  {
+    for (int col = static_cast<int>(std::floor((x - kClearance - ox) / r));
+      col <= static_cast<int>(std::floor((x + kClearance - ox) / r)); ++col)
+    {
+      const double dx = x - std::clamp(x, ox + col * r, ox + (col + 1) * r);
+      const double dy = y - std::clamp(y, oy + row * r, oy + (row + 1) * r);
+      if (dx * dx + dy * dy <= kClearance * kClearance &&
+        is_occupied(map, ox + (col + 0.5) * r, oy + (row + 0.5) * r))
+      {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+double free_distance(
+  const nav_msgs::msg::OccupancyGrid & map,
+  const geometry_msgs::msg::Point & here, double angle)
+{
+  for (double d = 0.05; d <= 2.0; d += 0.05) {
+    if (!clear(map, here.x + d * std::cos(angle), here.y + d * std::sin(angle))) {
+      return d - 0.05;
+    }
+  }
+  return 2.0;
+}
+}  // namespace
+
+void Explorer::interrupt()
+{
+  history_.clear();
+  progress_.reset();
+  escape_goal_.reset();
+  path_.clear();
+  travel_ = 0.0;
+  following_wall_ = false;
+}
+
+void Explorer::reset()
+{
+  interrupt();
+  coverage_.clear();
+}
+
+bool Explorer::start_escape(
+  const geometry_msgs::msg::Point & here,
+  const nav_msgs::msg::OccupancyGrid & map, double time)
+{
+  struct Candidate { geometry_msgs::msg::Point point; double score; };
+  std::vector<Candidate> candidates;
+  const double ox = map.info.origin.position.x;
+  const double oy = map.info.origin.position.y;
+  for (double y = oy + 0.5; y < oy + map.info.height * map.info.resolution; y += 1.0) {
+    for (double x = ox + 0.5; x < ox + map.info.width * map.info.resolution; x += 1.0) {
+      auto p = here;
+      p.x = x;
+      p.y = y;
+      const double d = exploration_distance(here, p);
+      if (d < 2.5 || !clear(map, x, y)) {
+        continue;
+      }
+      // Prefer new territory, then greater separation from the loop or stall.
+      unsigned visits = 0;
+      for (const auto & entry : coverage_) {
+        const auto key = cell(p);
+        if (std::abs(entry.first.first - key.first) <= 1 &&
+          std::abs(entry.first.second - key.second) <= 1)
+        {
+          visits += entry.second;
+        }
+      }
+      candidates.push_back({p, 4.0 * visits - std::min(d, 8.0)});
+    }
+  }
+  std::sort(candidates.begin(), candidates.end(),
+    [](const Candidate & a, const Candidate & b) { return a.score < b.score; });
+  // Bound expensive searches; failed destinations get a penalty for the next attempt.
+  for (size_t i = 0; i < std::min<size_t>(12, candidates.size()); ++i) {
+    const auto & goal = candidates[i].point;
+    auto route = planner_.plan(here, goal, map);
+    if (route.size() >= 2 && exploration_distance(route.back(), goal) < 0.1) {
+      escape_goal_ = goal;
+      escape_started_ = time;
+      last_plan_ = time;
+      path_ = std::move(route);
+      history_.clear();
+      following_wall_ = false;
+      return true;
+    }
+    coverage_[cell(goal)] += 10;
+  }
+  return false;
+}
+
+geometry_msgs::msg::Twist Explorer::update(
+  const geometry_msgs::msg::Pose & pose,
+  const nav_msgs::msg::OccupancyGrid & map, double time)
+{
+  geometry_msgs::msg::Twist command;
+  if (map.info.resolution <= 0.0 || map.info.width == 0 || map.info.height == 0 ||
+    map.data.size() < static_cast<size_t>(map.info.width) * map.info.height)
+  {
+    path_.clear();
+    return command;
+  }
+  const auto & here = pose.position;
+  const auto & q = pose.orientation;
+  const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y),
+    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  if (progress_ && time < progress_->time) {
+    interrupt();
+  }
+  if (!progress_) {
+    progress_ = Visit{here, yaw, time, 0.0};
+    ++coverage_[cell(here)];
+  }
+  bool loop = false;
+  if (exploration_distance(here, progress_->position) >= 0.25) {
+    travel_ += exploration_distance(here, progress_->position);
+    progress_ = Visit{here, yaw, time, travel_};
+    ++coverage_[cell(here)];
+    for (const auto & visit : history_) {
+      if (time - visit.time >= 8.0 && travel_ - visit.travel >= 4.0 &&
+        exploration_distance(here, visit.position) < 0.65 && std::cos(yaw - visit.yaw) > 0.5)
+      {
+        loop = true;
+        break;
+      }
+    }
+    history_.push_back(*progress_);
+    if (history_.size() > 600) {
+      history_.erase(history_.begin());
+    }
+  }
+  const bool stalled = time - progress_->time >= 3.0;
+  if (escape_goal_ && (exploration_distance(here, *escape_goal_) < 0.35 ||
+    time - escape_started_ > 25.0 || stalled))
+  {
+    coverage_[cell(*escape_goal_)] += 10;
+    escape_goal_.reset();
+    history_.clear();
+    path_.clear();
+    following_wall_ = false;
+  }
+  if (!escape_goal_ && (loop || stalled)) {
+    start_escape(here, map, time);
+    progress_ = Visit{here, yaw, time, travel_};
+  }
+  if (escape_goal_) {
+    if (time - last_plan_ >= 0.5) {
+      path_ = planner_.plan(here, *escape_goal_, map);
+      last_plan_ = time;
+    }
+    while (path_.size() > 2 && exploration_distance(here, path_[1]) < 0.10) {
+      path_.erase(path_.begin() + 1);
+    }
+    return Controller{}.compute_velocity(pose, path_);
+  }
+
+  path_.clear();
+  const double front = free_distance(map, here, yaw);
+  const double left = free_distance(map, here, yaw + kPi / 2.0);
+  if (left < 1.2) {
+    following_wall_ = true;
+  }
+  if (front < 0.55) {
+    // Turn right at an obstacle, keeping the wall on the left.
+    command.angular.z = -0.8;
+    return command;
+  }
+  // Before finding a wall, move forward until reaching one. Once attached,
+  // steer toward a missing left wall to follow outside corners and doorways.
+  const double turn = following_wall_ ? std::clamp(1.4 * (left - 0.30), -0.7, 0.7) : 0.0;
+  auto goal = here;
+  const double heading = yaw + turn;
+  const double length = std::min(0.5, free_distance(map, here, heading));
+  if (length < 0.15) {
+    command.angular.z = -0.8;
+    return command;
+  }
+  goal.x += length * std::cos(heading);
+  goal.y += length * std::sin(heading);
+  path_ = {here, goal};
+  command = Controller{}.compute_velocity(pose, path_);
+  // Exploration is deliberately slower than target pursuit.
+  command.linear.x = std::clamp(command.linear.x, -0.45, 0.45);
+  command.linear.y = std::clamp(command.linear.y, -0.3, 0.3);
+  return command;
 }
 
 }  // namespace ghost_brain

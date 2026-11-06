@@ -20,6 +20,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -139,4 +140,53 @@ TEST_CASE("The tracker places what the camera sees", "[.hackathon]")
   REQUIRE_THAT(target.position.x, WithinAbs(3.25, 0.1));
   REQUIRE_THAT(target.position.y, WithinAbs(2.0, 0.1));
   REQUIRE_THAT(target.position.z, WithinAbs(1.6, 0.1));
+}
+
+TEST_CASE("Missing candy is forgotten only with a clear camera view", "[sensing]")
+{
+  Tracker tracker;
+  vision_msgs::msg::Detection2DArray detections;
+  detections.header.stamp = rclcpp::Time(1, 0);
+  vision_msgs::msg::Detection2D candy;
+  candy.bbox.center.position.x = 64.0;
+  candy.bbox.center.position.y = 36.0;
+  candy.bbox.size_x = 6.0;
+  candy.bbox.size_y = 6.0;
+  vision_msgs::msg::ObjectHypothesisWithPose hypothesis;
+  hypothesis.hypothesis.class_id = "candy";
+  candy.results.push_back(hypothesis);
+  detections.detections.push_back(candy);
+  auto pose = pose_at(1.0, 2.0, 1.5, M_PI / 2.0);
+  tracker.on_detections(detections, flat_depth(2.0f), camera_info(), pose);
+  REQUIRE(tracker.targets().size() == 1);
+
+  detections.header.stamp = rclcpp::Time(2, 0);
+  auto depth = flat_depth(3.0f);
+  bool forgotten = false;
+  SECTION("Visible candy without a detection is removed") {
+    detections.detections.clear();
+    forgotten = true;
+  }
+  SECTION("Occluded candy is retained") {
+    detections.detections.clear();
+    depth = flat_depth(1.0f);
+  }
+  SECTION("Candy outside the camera view is retained") {
+    detections.detections.clear();
+    pose.orientation = pose_at(0.0, 0.0, 0.0, -M_PI / 2.0).orientation;
+  }
+  SECTION("Unknown depth does not establish visibility") {
+    detections.detections.clear();
+    depth = flat_depth(std::numeric_limits<float>::quiet_NaN());
+  }
+  SECTION("A detection with unusable depth still preserves candy") {
+    depth = flat_depth(std::numeric_limits<float>::infinity());
+  }
+  SECTION("An unobstructed infinite depth ray clears missing candy") {
+    detections.detections.clear();
+    depth = flat_depth(std::numeric_limits<float>::infinity());
+    forgotten = true;
+  }
+  tracker.on_detections(detections, depth, camera_info(), pose);
+  REQUIRE(tracker.targets().empty() == forgotten);
 }

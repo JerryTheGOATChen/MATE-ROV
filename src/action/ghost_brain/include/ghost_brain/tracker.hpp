@@ -78,6 +78,9 @@ public:
   /// Forget everything. Called at the start of every game
   void reset();
 
+  /// Forget person tracks within radius of a confirmed haunt; preserve candy tracks.
+  void reset_people(const geometry_msgs::msg::Point & position, double radius);
+
   void on_detections(
     const vision_msgs::msg::Detection2DArray & detections,
     const sensor_msgs::msg::Image & depth,

@@ -14,6 +14,7 @@
 
 #include "ghost_brain/tracker.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 #include <cmath>
@@ -71,6 +72,18 @@ void Tracker::reset()
   targets_.clear();
 }
 
+
+void Tracker::reset_people(const geometry_msgs::msg::Point & position, double radius)
+{
+  targets_.erase(
+    std::remove_if(targets_.begin(), targets_.end(),
+      [&](const TrackedTarget & target) {
+        return target.is_person && std::hypot(
+          target.position.x - position.x, target.position.y - position.y,
+          target.position.z - position.z) <= radius;
+      }),
+    targets_.end());
+}
 
 bool Tracker::mark_completed(
   const geometry_msgs::msg::Point & position, bool is_person, double max_distance)
@@ -140,7 +153,7 @@ void Tracker::on_detections(
 
   rclcpp::Time current_time(detections.header.stamp);
 
-  // Keep last-known person locations long enough to reach them and scan.
+  // Keep last-known person locations as fallback goals when no live targets remain.
   for (auto it = targets_.begin(); it != targets_.end();) {
     if (
       it->is_person && !it->completed &&
@@ -297,6 +310,49 @@ void Tracker::on_detections(
       targets_.push_back(target);
     }
   }
+
+  // Negative observations only count inside the camera's view and with clear depth.
+  // Transform the remembered world point back into the camera's optical frame.
+  targets_.erase(std::remove_if(targets_.begin(), targets_.end(),
+    [&](const TrackedTarget & target) {
+      if (target.is_person || target.completed || target.last_seen >= current_time ||
+        fx <= 0.0 || fy <= 0.0)
+      {
+        return false;
+      }
+      const double dx = target.position.x - ghost_pose.position.x;
+      const double dy = target.position.y - ghost_pose.position.y;
+      const double z = dx * std::cos(yaw) + dy * std::sin(yaw) - kCameraForward;
+      const double x = dx * std::sin(yaw) - dy * std::cos(yaw) + kCameraLeft;
+      const double y = ghost_pose.position.z + kCameraUp - target.position.z;
+      // The simulator's camera detects targets out to 12 m.
+      if (z <= 0.05 || std::hypot(x, y, z) > 12.0) {
+        return false;
+      }
+      const double u = fx * x / z + cx;
+      const double v = fy * y / z + cy;
+      // Leave a pixel at the image edge for rounding and localization uncertainty.
+      if (u < 1.0 || v < 1.0 || u >= depth.width - 1.0 || v >= depth.height - 1.0) {
+        return false;
+      }
+      // A detection still counts even if its depth was unusable for a track update.
+      for (const auto & detection : detections.detections) {
+        if (!detection.results.empty() &&
+          detection.results[0].hypothesis.class_id == "candy" &&
+          std::abs(u - detection.bbox.center.position.x) <= detection.bbox.size_x / 2.0 + 1.0 &&
+          std::abs(v - detection.bbox.center.position.y) <= detection.bbox.size_y / 2.0 + 1.0)
+        {
+          return false;
+        }
+      }
+      const float observed_depth = depth_at(depth,
+        static_cast<int>(std::round(u)), static_cast<int>(std::round(v)));
+      // NaN is unknown; nearer surfaces mean the candy could be occluded.
+      // Infinity means the ray is clear. Allow 10 cm for depth/pose uncertainty.
+      return !std::isnan(observed_depth) && observed_depth > 0.0f &&
+             observed_depth >= z - 0.1;
+    }), targets_.end());
+
 }
 
 }  // namespace ghost_brain

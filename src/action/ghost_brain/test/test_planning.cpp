@@ -150,3 +150,95 @@ TEST_CASE("The controller flies toward the route", "[.hackathon]")
     REQUIRE((twist.angular.z != 0.0 || twist.linear.x < 0.0));
   }
 }
+
+namespace
+{
+nav_msgs::msg::OccupancyGrid room()
+{
+  nav_msgs::msg::OccupancyGrid map;
+  map.info.resolution = 0.1;
+  map.info.width = 120;
+  map.info.height = 120;
+  map.info.origin.orientation.w = 1.0;
+  map.data.assign(120 * 120, 0);
+  return map;
+}
+
+geometry_msgs::msg::Pose pose(double x, double y, double yaw = 0.0)
+{
+  geometry_msgs::msg::Pose p;
+  p.position.x = x;
+  p.position.y = y;
+  p.position.z = 1.5;
+  p.orientation.z = std::sin(yaw / 2.0);
+  p.orientation.w = std::cos(yaw / 2.0);
+  return p;
+}
+}  // namespace
+
+TEST_CASE("Exploration moves to find a wall instead of spinning", "[exploration]")
+{
+  ghost_brain::Explorer explorer;
+  const auto command = explorer.update(pose(5.0, 5.0), room(), 0.0);
+  REQUIRE(command.linear.x > 0.0);
+  REQUIRE(command.angular.z == 0.0);
+  REQUIRE_FALSE(explorer.escaping());
+}
+
+TEST_CASE("Exploration keeps a left wall and turns right at blocked corners", "[exploration]")
+{
+  ghost_brain::Explorer explorer;
+  auto map = room();
+  auto p = pose(5.0, 11.35);
+  SECTION("Parallel to the left wall") {
+    const auto command = explorer.update(p, map, 0.0);
+    REQUIRE(command.linear.x > 0.0);
+    REQUIRE(std::abs(command.angular.z) < 0.2);
+  }
+  SECTION("Facing a blocked corner") {
+    p.position.x = 11.4;
+    const auto command = explorer.update(p, map, 0.0);
+    REQUIRE(command.linear.x == 0.0);
+    REQUIRE(command.linear.y == 0.0);
+    REQUIRE(command.angular.z < 0.0);
+  }
+}
+
+TEST_CASE("A closed exploration circuit triggers a route away from an island", "[exploration]")
+{
+  ghost_brain::Explorer explorer;
+  auto map = room();
+  // A central island occupying (5, 5) through (7, 7).
+  for (int y = 50; y < 70; ++y) {
+    for (int x = 50; x < 70; ++x) {
+      map.data[y * map.info.width + x] = 100;
+    }
+  }
+  explorer.update(pose(4.0, 4.0), map, 0.0);
+  explorer.update(pose(5.0, 4.0), map, 2.0);
+  explorer.update(pose(8.0, 4.0, 1.57), map, 4.0);
+  explorer.update(pose(8.0, 8.0, 3.14), map, 6.0);
+  explorer.update(pose(4.0, 8.0, -1.57), map, 8.0);
+  explorer.update(pose(4.0, 4.0), map, 10.0);
+  explorer.update(pose(5.0, 4.0), map, 12.0);
+  REQUIRE(explorer.escaping());
+  REQUIRE(explorer.path().size() >= 2);
+  const auto & goal = explorer.path().back();
+  REQUIRE(std::hypot(goal.x - 5.0, goal.y - 4.0) >= 2.5);
+  explorer.interrupt();
+  REQUIRE_FALSE(explorer.escaping());
+  REQUIRE(explorer.path().empty());
+}
+
+TEST_CASE("Stalled exploration selects a reachable escape route", "[exploration]")
+{
+  ghost_brain::Explorer explorer;
+  const auto map = room();
+  const auto p = pose(5.0, 5.0);
+  explorer.update(p, map, 0.0);
+  explorer.update(p, map, 3.1);
+  REQUIRE(explorer.escaping());
+  REQUIRE(explorer.path().size() >= 2);
+  explorer.reset();
+  REQUIRE_FALSE(explorer.escaping());
+}
