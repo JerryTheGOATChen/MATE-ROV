@@ -15,10 +15,15 @@
 #pragma once
 
 #include <vector>
+#include <cstdint>
+#include <optional>
+#include <random>
+#include <chrono>
 
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "rclcpp/time.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
@@ -26,12 +31,15 @@
 namespace ghost_brain
 {
 
-/// A person or piece of candy the ghost has seen, and where it thinks it is
+/// A detected target or a temporary exploration destination.
 struct TrackedTarget
 {
   geometry_msgs::msg::Point position;
   bool is_person{false};
   rclcpp::Time last_seen;
+  uint64_t id{0};
+  uint64_t seen_frame{0};
+  bool is_temporary{false};
 };
 
 /// Where the camera sits on the ghost: this far forward, left and up from its center (m)
@@ -84,9 +92,25 @@ public:
     const geometry_msgs::msg::Pose & ghost_pose);
 
   const std::vector<TrackedTarget> & targets() const { return targets_; }
-
+  uint64_t frame() const { return frame_; }
+  void remove(uint64_t id);
+  /// Drop a stalled goal and avoid immediately selecting the same location again.
+  void skip_target(const TrackedTarget & target);
+  /// Visible person first; otherwise keep the candy goal, selecting the nearest when needed.
+  std::optional<TrackedTarget> choose_target(
+    const geometry_msgs::msg::Point & here, const nav_msgs::msg::OccupancyGrid & map);
 private:
+  /// Internal fallback used only by choose_target(), never selected directly by the node.
+  std::optional<TrackedTarget> choose_random_target(
+    const geometry_msgs::msg::Point & here, const nav_msgs::msg::OccupancyGrid & map);
   std::vector<TrackedTarget> targets_;
+  uint64_t next_id_{1};
+  uint64_t frame_{0};
+  std::optional<TrackedTarget> random_target_;  // ID 0 is reserved for this synthetic target.
+  std::optional<TrackedTarget> candy_goal_;
+  std::mt19937 random_{std::random_device{}()};
+  std::optional<geometry_msgs::msg::Point> skipped_position_;
+  std::chrono::steady_clock::time_point skip_until_;
 };
 
 }  // namespace ghost_brain

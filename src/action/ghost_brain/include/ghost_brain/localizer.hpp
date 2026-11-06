@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include <optional>
+#include "rclcpp/time.hpp"
+
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
@@ -53,7 +56,7 @@ public:
   geometry_msgs::msg::Pose pose() const { return pose_; }
 
 private:
-  rclcpp::Time previous_time;
+  std::optional<rclcpp::Time> previous_time;
   geometry_msgs::msg::Pose pose_;
 };
 

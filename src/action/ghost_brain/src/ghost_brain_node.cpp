@@ -14,9 +14,9 @@
 
 #include "ghost_brain/ghost_brain_node.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <limits>
 #include <string>
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -107,6 +107,7 @@ GhostBrainNode::CallbackReturn GhostBrainNode::on_activate(const rclcpp_lifecycl
   path_pub_->on_activate();
   markers_pub_->on_activate();
   last_plan_time_ = now();
+  motion_anchor_.reset();
   const auto period =
     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / control_rate_hz_));
   timer_ = create_wall_timer(period, [this]() { update(); });
@@ -150,6 +151,8 @@ void GhostBrainNode::on_state(const haunted_house_msgs::msg::GameState & state)
   if (new_game && start_pose_) {
     localizer_.reset(start_pose_->pose);
     tracker_.reset();
+    active_target_.reset();
+    motion_anchor_.reset();
     path_.clear();
     planned_goal_.reset();
     RCLCPP_INFO(get_logger(), "New game: back to the start");
@@ -163,22 +166,25 @@ void GhostBrainNode::on_detections(const vision_msgs::msg::Detection2DArray & de
   if (!depth_ || !camera_info_ || depth_->header.stamp != detections.header.stamp) {
     return;
   }
+  const auto previous_frame = tracker_.frame();
   tracker_.on_detections(detections, *depth_, *camera_info_, localizer_.pose());
-}
-
-std::optional<TrackedTarget> GhostBrainNode::choose_target() const
-{
-  const auto here = localizer_.pose().position;
-  std::optional<TrackedTarget> best;
-  double best_distance = std::numeric_limits<double>::infinity();
-  for (const auto & target : tracker_.targets()) {
-    const double d = distance(here, target.position);
-    if (d < best_distance) {
-      best = target;
-      best_distance = d;
+  if (tracker_.frame() == previous_frame) {
+    return;  // Invalid image/calibration is not evidence that a target disappeared.
+  }
+  // Only a fresh frame received at the destination can retire the active target.
+  if (active_target_ && !active_target_->is_temporary &&
+      distance(localizer_.pose().position, active_target_->position) <= 0.2) {
+    const auto & targets = tracker_.targets();
+    const auto found = std::find_if(targets.begin(), targets.end(), [this](const TrackedTarget & target) {
+      return target.id == active_target_->id;
+    });
+    if (found == targets.end() || found->seen_frame != tracker_.frame()) {
+      tracker_.remove(active_target_->id);
+      active_target_.reset();
+      planned_goal_.reset();
+      path_.clear();
     }
   }
-  return best;
 }
 
 void GhostBrainNode::update()
@@ -188,24 +194,71 @@ void GhostBrainNode::update()
     publish_pose();
   }
   if (!start_pose_ || !map_ || !state_ || state_->phase != GameState::RUNNING) {
+    motion_anchor_.reset();
     publish_command(geometry_msgs::msg::Twist{});
     return;
   }
 
-  // TODO(hackathon): with nothing in sight, the ghost could look around, or go exploring
-  const auto target = choose_target();
+  const auto here = localizer_.pose().position;
+  auto target = tracker_.choose_target(here, *map_);
+  const auto motion_time = std::chrono::steady_clock::now();
   if (!target) {
+    motion_anchor_.reset();
+  } else if (!motion_anchor_ || distance(here, *motion_anchor_) >= 0.1) {
+    motion_anchor_ = here;
+    last_motion_time_ = motion_time;
+  } else if (motion_time - last_motion_time_ >= std::chrono::seconds(2)) {
+    RCLCPP_WARN(get_logger(), "No movement for 2 seconds: skipping the current goal");
+    tracker_.skip_target(*target);
+    target = tracker_.choose_target(here, *map_);
+    active_target_.reset();
+    planned_goal_.reset();
+    path_.clear();
+    motion_anchor_ = here;
+    last_motion_time_ = motion_time;
+  }
+  if (!active_target_ || !target || active_target_->id != target->id) {
+    planned_goal_.reset();
+  }
+  active_target_ = target;
+  std::optional<geometry_msgs::msg::Point> goal;
+  if (target) {
+    goal = target->position;
+  }
+  if (!goal) {
+    path_.clear();
+    planned_goal_.reset();
+    publish_path();
     publish_command(geometry_msgs::msg::Twist{});
     publish_markers(target);
     return;
   }
 
-  // Plan again for a new target, and now and then anyway, because people keep walking
-  const bool new_goal = !planned_goal_ || distance(*planned_goal_, target->position) > 0.5;
+  const bool new_goal = !planned_goal_ || distance(*planned_goal_, *goal) > 0.05;
   if (new_goal || now() - last_plan_time_ >= replan_period_) {
-    path_ = planner_.plan(localizer_.pose().position, target->position, *map_);
-    planned_goal_ = target->position;
+    path_ = planner_.plan(here, *goal, *map_);
+    if (path_.empty()) {
+      tracker_.skip_target(*target);
+      // Every re-goal uses the same person -> candy -> temporary goal policy.
+      target = tracker_.choose_target(here, *map_);
+      active_target_ = target;
+      if (target) {
+        path_ = planner_.plan(here, target->position, *map_);
+      }
+    }
     last_plan_time_ = now();
+    if (path_.empty()) {
+      if (target) {
+        tracker_.remove(target->id);
+      }
+      active_target_.reset();
+      planned_goal_.reset();
+      publish_path();
+      publish_command(geometry_msgs::msg::Twist{});
+      publish_markers(std::nullopt);
+      return;
+    }
+    planned_goal_ = target->position;
     publish_path();
   }
 
@@ -296,11 +349,22 @@ void GhostBrainNode::publish_markers(const std::optional<TrackedTarget> & target
     ring.pose.orientation.w = 1.0;
     ring.scale.x = ring.scale.y = 1.0;
     ring.scale.z = 0.02;
-    ring.color.r = 0.4f;
-    ring.color.g = 1.0f;
-    ring.color.b = 0.4f;
+    ring.color.r = target->is_temporary ? 0.2f : 0.4f;
+    ring.color.g = target->is_temporary ? 0.6f : 1.0f;
+    ring.color.b = target->is_temporary ? 1.0f : 0.4f;
     ring.color.a = 0.6f;
     msg.markers.push_back(ring);
+    if (target->is_temporary) {
+      Marker label = ring;
+      label.ns = "temporary_goal";
+      label.id = 0;
+      label.type = Marker::TEXT_VIEW_FACING;
+      label.pose.position.z += 0.25;
+      label.scale.z = 0.22;
+      label.color.a = 1.0f;
+      label.text = "Temporary exploration goal";
+      msg.markers.push_back(label);
+    }
   }
   markers_pub_->publish(msg);
 }
@@ -329,6 +393,8 @@ void GhostBrainNode::release_resources()
   camera_info_.reset();
   path_.clear();
   planned_goal_.reset();
+  active_target_.reset();
+  motion_anchor_.reset();
 }
 
 }  // namespace ghost_brain

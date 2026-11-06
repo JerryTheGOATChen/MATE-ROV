@@ -15,6 +15,7 @@
 #pragma once
 
 #include <memory>
+#include <chrono>
 #include <optional>
 #include <string>
 
@@ -35,9 +36,6 @@
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "tf2_ros/transform_broadcaster.hpp"
-#include "tf2/LinearMath/Quaternion.hpp"
-#include "tf2/LinearMath/Vector3.hpp"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
@@ -74,9 +72,6 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  /// What to go after next. Starts as the nearest target Tracker knows about: you can do better
-  std::optional<TrackedTarget> choose_target() const;
-
   void on_state(const haunted_house_msgs::msg::GameState & state);
   void on_detections(const vision_msgs::msg::Detection2DArray & detections);
   void update();
@@ -106,7 +101,10 @@ private:
   Controller controller_;
   Path path_;
   std::optional<geometry_msgs::msg::Point> planned_goal_;
+  std::optional<TrackedTarget> active_target_;
   rclcpp::Time last_plan_time_;
+  std::optional<geometry_msgs::msg::Point> motion_anchor_;
+  std::chrono::steady_clock::time_point last_motion_time_;
 
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_sub_;

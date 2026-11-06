@@ -43,6 +43,10 @@ class Controller
 public:
   /// @return the velocity to send now, in the ghost's own frame. Return all zeros to stop
   geometry_msgs::msg::Twist compute_velocity(const geometry_msgs::msg::Pose & pose, const Path & path);
+
+private:
+  Path previous_path_;
+  size_t next_waypoint_{0};
 };
 
 }  // namespace ghost_brain

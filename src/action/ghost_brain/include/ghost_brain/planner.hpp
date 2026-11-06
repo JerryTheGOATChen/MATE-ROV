@@ -33,6 +33,23 @@ using Path = std::vector<geometry_msgs::msg::Point>;
  */
 bool is_occupied(const nav_msgs::msg::OccupancyGrid & map, double x, double y);
 
+constexpr double kObstacleInflationRadius = 0.3;
+
+/// Includes clearance from occupied cells and the map boundary, in meters.
+bool is_occupied_with_clearance(
+  const nav_msgs::msg::OccupancyGrid & map, double x, double y,
+  double radius = kObstacleInflationRadius);
+
+/// Expand all occupied cells by a circular clearance radius; the original map is unchanged.
+nav_msgs::msg::OccupancyGrid inflate_map(
+  const nav_msgs::msg::OccupancyGrid & map, double radius = kObstacleInflationRadius);
+
+/// Shared A*/goal-search edge rule. A start inside the buffer may move outward through raw-free
+/// cells without reducing clearance; once clear, the full inflation buffer applies.
+bool is_navigation_step_valid(
+  const nav_msgs::msg::OccupancyGrid & map, const nav_msgs::msg::OccupancyGrid & navigation,
+  int from_col, int from_row, int to_col, int to_row);
+
 /**
  * @brief Plans the ghost's route through the house. This is yours to write!
  *
