@@ -158,9 +158,18 @@ geometry_msgs::msg::Twist Controller::compute_velocity(const geometry_msgs::msg:
   const double dyaw = compute_angular_error(get_yaw(pose.orientation), std::atan2(dy, dx));
   const double dz = target.z - ghost_z;
 
-  const double alignment = std::max(0.0, std::cos(dyaw));
-  
-  cmd.linear.x = std::clamp(1.0 * alignment, -1.0, 1.0);
+  // Slow down coming in to the end of the path, so the ghost stops on it instead of overshooting
+  // and circling. Right above or below the point there is no heading to turn to: just change height
+  const double to_end = std::hypot(final_point.x - ghost_x, final_point.y - ghost_y);
+  const double speed = std::min(1.0, 1.2 * to_end);
+  if (std::hypot(dx, dy) < 0.1) {
+    cmd.linear.z = std::clamp(altitude_pid_.update(dz, kDt), -0.6, 0.6);
+    return cmd;
+  }
+  // Head straight for the aim point using forward AND sideways speed (the ghost can fly sideways at
+  // up to 0.6 m/s), instead of only flying forward and slowing down whenever the heading is off
+  cmd.linear.x = std::clamp(speed * std::cos(dyaw), -0.5, 1.0);
+  cmd.linear.y = std::clamp(speed * std::sin(dyaw), -0.6, 0.6);
   cmd.angular.z = std::clamp(heading_pid_.update(dyaw, kDt), -1.5, 1.5);
   cmd.linear.z = std::clamp(altitude_pid_.update(dz, kDt), -0.6, 0.6);
 

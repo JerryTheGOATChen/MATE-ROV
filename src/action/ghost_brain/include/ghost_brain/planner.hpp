@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "haunted_house_msgs/msg/box_array.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace ghost_brain
@@ -50,13 +51,12 @@ bool is_occupied(const nav_msgs::msg::OccupancyGrid & map, double x, double y);
 class Planner
 {
 public:
-  static constexpr double kInflationRadius = 0.35;
-  
   /// @return the route from start to goal, or an empty path if there is none
   Path plan(
     const geometry_msgs::msg::Point & start,
     const geometry_msgs::msg::Point & goal,
-    const nav_msgs::msg::OccupancyGrid & map) const;
+    const nav_msgs::msg::OccupancyGrid & map,
+    const haunted_house_msgs::msg::BoxArray & obstacles) const;
 };
 
 }  // namespace ghost_brain

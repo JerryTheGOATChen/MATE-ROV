@@ -14,10 +14,15 @@
 
 #pragma once
 
+#include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/vector3.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
+#include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/imu.hpp"
+#include "rclcpp/time.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
 namespace ghost_brain
@@ -49,11 +54,33 @@ public:
   void on_imu(const sensor_msgs::msg::Imu & imu);
   void on_sonar(const sensor_msgs::msg::LaserScan & scan, const nav_msgs::msg::OccupancyGrid & map);
 
+  /// Fix the height from the depth camera: the floor (z = 0) is the lowest thing it sees, so the
+  /// biggest drop below the camera in the bottom of the image is how high the camera is
+  void on_depth(const sensor_msgs::msg::Image & depth, const sensor_msgs::msg::CameraInfo & camera_info);
+
   /// The best guess of where the ghost is, in the map frame
   geometry_msgs::msg::Pose pose() const { return pose_; }
 
+  /// How fast the velocity sensor says the ghost is moving (m/s), however it got there: this is
+  /// what notices a ghost pressed against a wall while it is trying to fly
+  double speed() const { return speed_; }
+
+  /**
+   * Tell the localizer whether the ghost is certainly standing still (the wait before a game).
+   * While it is, the velocity sensor reads only its bias and noise, so the average is the bias,
+   * which is then taken off every reading once the ghost is free to move.
+   */
+  void set_stationary(bool stationary);
+
 private:
   geometry_msgs::msg::Pose pose_;
+  double speed_{0.0};
+  bool stationary_{false};
+  geometry_msgs::msg::Vector3 bias_;      // the velocity sensor's bias (forward, left, up), m/s
+  geometry_msgs::msg::Vector3 bias_sum_;  // readings added up while stationary
+  int bias_count_{0};
+  rclcpp::Time last_velocity_time_{0, 0, RCL_ROS_TIME};
+  bool has_last_velocity_{false};  // false until the first velocity message of a game
 };
 
 }  // namespace ghost_brain

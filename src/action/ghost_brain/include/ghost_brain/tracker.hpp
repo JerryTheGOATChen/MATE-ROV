@@ -17,7 +17,9 @@
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "haunted_house_msgs/msg/box_array.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/vector3.hpp"
 #include "rclcpp/time.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -30,8 +32,11 @@ namespace ghost_brain
 struct TrackedTarget
 {
   geometry_msgs::msg::Point position;
+  geometry_msgs::msg::Vector3 velocity;  // m/s in the map, estimated from sightings (people only)
   bool is_person{false};
   rclcpp::Time last_seen;
+  geometry_msgs::msg::Point anchor;  // where it was when the velocity was last worked out
+  rclcpp::Time anchor_time;
 };
 
 /// Where the camera sits on the ghost: this far forward, left and up from its center (m)
@@ -77,11 +82,15 @@ public:
   /// Forget everything. Called at the start of every game
   void reset();
 
+  /// The game says one was just collected near here: forget the nearest target of that kind
+  void forget_nearest(bool is_person, const geometry_msgs::msg::Point & near, double radius);
+
   void on_detections(
     const vision_msgs::msg::Detection2DArray & detections,
     const sensor_msgs::msg::Image & depth,
     const sensor_msgs::msg::CameraInfo & camera_info,
-    const geometry_msgs::msg::Pose & ghost_pose);
+    const geometry_msgs::msg::Pose & ghost_pose,
+    const haunted_house_msgs::msg::BoxArray * obstacles = nullptr);
 
   const std::vector<TrackedTarget> & targets() const { return targets_; }
 

@@ -16,10 +16,11 @@
 //
 // Test cases tagged [.hackathon] are hidden until you are ready for them. Run them with
 //   ./build/ghost_brain/test_planning "[hackathon]"
-// and when your code passes, delete the "[.hackathon]" tag's dot so they run with colcon test too.
+// and when your code passes, delete the "[hackathon]" tag's dot so they run with colcon test too.
 // Add your own as you go: a test is the quickest way to try a planner without the whole house.
 
 #include <cmath>
+#include <utility>
 
 #include <catch2/catch_test_macros.hpp>
 #include <geometry_msgs/msg/point.hpp>
@@ -34,6 +35,7 @@ using ghost_brain::Controller;
 using ghost_brain::is_occupied;
 using ghost_brain::Path;
 using ghost_brain::Planner;
+using haunted_house_msgs::msg::BoxArray;
 using nav_msgs::msg::OccupancyGrid;
 
 namespace
@@ -64,6 +66,22 @@ OccupancyGrid room_with_wall()
     }
   }
   return map;
+}
+
+/// The same wall as room_with_wall(), as a 3D box: x 4.9..5.2, y 0..8, floor to ceiling
+BoxArray wall_boxes()
+{
+  haunted_house_msgs::msg::Box wall;
+  wall.name = "wall";
+  wall.min.x = 4.9;
+  wall.min.y = 0.0;
+  wall.min.z = 0.0;
+  wall.max.x = 5.2;
+  wall.max.y = 8.0;
+  wall.max.z = 3.0;
+  BoxArray boxes;
+  boxes.boxes.push_back(wall);
+  return boxes;
 }
 
 geometry_msgs::msg::Pose pose_at(double x, double y, double z, double yaw)
@@ -103,14 +121,14 @@ TEST_CASE("The controller stops when there is nowhere to go", "[planning]")
   REQUIRE(twist.angular.z == 0.0);
 }
 
-TEST_CASE("The planner finds a route around a wall", "[.hackathon]")
+TEST_CASE("The planner finds a route around a wall", "[hackathon]")
 {
   const Planner planner;
   const OccupancyGrid map = room_with_wall();
   const Point start = point(2.0, 2.0);
   const Point goal = point(8.0, 2.0);
 
-  const Path path = planner.plan(start, goal, map);
+  const Path path = planner.plan(start, goal, map, wall_boxes());
 
   REQUIRE_FALSE(path.empty());
   REQUIRE(distance(path.front(), start) < 0.5);
@@ -126,10 +144,82 @@ TEST_CASE("The planner finds a route around a wall", "[.hackathon]")
   REQUIRE(went_around);
 }
 
-TEST_CASE("The planner gives up on a goal inside a wall", "[.hackathon]")
+TEST_CASE("The planner moves a goal inside a wall to open space next to it", "[hackathon]")
 {
   const Planner planner;
-  REQUIRE(planner.plan(point(2.0, 2.0), point(5.0, 4.0), room_with_wall()).empty());
+  const Point goal = point(5.0, 4.0);
+  const Path path = planner.plan(point(2.0, 2.0), goal, room_with_wall(), wall_boxes());
+  // A drifted estimate can put a target in a wall: get as close as possible instead of freezing
+  REQUIRE_FALSE(path.empty());
+  REQUIRE(distance(path.back(), goal) < 0.7);
+  REQUIRE_FALSE(is_occupied(room_with_wall(), path.back().x, path.back().y));
+}
+
+TEST_CASE("The planner can start from inside a wall's safety margin", "[hackathon]")
+{
+  const Planner planner;
+  // 0.15 m from the wall's face: closer than the ghost's radius, as drift or a bonk can leave it
+  const Point start = point(4.75, 2.0);
+  const Path path = planner.plan(start, point(2.0, 2.0), room_with_wall(), wall_boxes());
+  REQUIRE_FALSE(path.empty());
+  REQUIRE(distance(path.back(), point(2.0, 2.0)) < 0.5);
+}
+
+TEST_CASE("The planner flies through a 1.2 m doorway", "[hackathon]")
+{
+  const Planner planner;
+  // A solid wall across x = 5 from y = 0 to 10, with a 1.2 m door at y 4.4 to 5.6
+  OccupancyGrid map = room_with_wall();
+  for (auto & cell : map.data) {
+    cell = 0;
+  }
+  BoxArray boxes;
+  for (const auto & span : {std::pair<double, double>{0.0, 4.4}, std::pair<double, double>{5.6, 10.0}}) {
+    haunted_house_msgs::msg::Box part;
+    part.name = "wall";
+    part.min.x = 4.9;
+    part.max.x = 5.1;
+    part.min.y = span.first;
+    part.max.y = span.second;
+    part.min.z = 0.0;
+    part.max.z = 3.0;
+    boxes.boxes.push_back(part);
+    for (int row = static_cast<int>(span.first * 10); row < static_cast<int>(span.second * 10); ++row) {
+      for (int col = 49; col <= 51; ++col) {
+        map.data[row * 100 + col] = 100;
+      }
+    }
+  }
+  const Path path = planner.plan(point(2.0, 5.0), point(8.0, 5.0), map, boxes);
+  REQUIRE_FALSE(path.empty());
+  REQUIRE(distance(path.back(), point(8.0, 5.0)) < 0.5);
+}
+
+TEST_CASE("The planner heads for the nearest reachable point when the goal is walled off", "[hackathon]")
+{
+  const Planner planner;
+  // A box room with no door: the goal inside it cannot be reached
+  OccupancyGrid map = room_with_wall();
+  for (auto & cell : map.data) {
+    cell = 0;
+  }
+  BoxArray boxes;
+  const double spans[4][4] = {{6.0, 6.0, 9.0, 6.2}, {6.0, 9.0, 9.0, 9.2}, {6.0, 6.0, 6.2, 9.2}, {9.0, 6.0, 9.2, 9.2}};
+  for (const auto & b : spans) {
+    haunted_house_msgs::msg::Box part;
+    part.name = "wall";
+    part.min.x = b[0];
+    part.min.y = b[1];
+    part.max.x = b[2];
+    part.max.y = b[3];
+    part.min.z = 0.0;
+    part.max.z = 3.0;
+    boxes.boxes.push_back(part);
+  }
+  const Path path = planner.plan(point(2.0, 2.0), point(7.5, 7.5), map, boxes);
+  // Not empty: it goes as close as it can get, which is outside the room
+  REQUIRE_FALSE(path.empty());
+  REQUIRE(distance(path.back(), point(7.5, 7.5)) < distance(point(2.0, 2.0), point(7.5, 7.5)));
 }
 
 TEST_CASE("The controller flies toward the route", "[hackathon]")

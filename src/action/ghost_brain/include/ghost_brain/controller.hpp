@@ -66,8 +66,8 @@ private:
   void reset();
 
   static constexpr double kDt = 0.05;            // 20 Hz control loop
-  static constexpr double kLookahead = 0.6;      // m, how far down the path to aim
-  static constexpr double kTolerance = 0.5;      // m, close enough to the final point
+  static constexpr double kLookahead = 0.7;      // m, how far down the path to aim (too long cuts corners, too short wiggles)
+  static constexpr double kTolerance = 0.15;     // m, close enough to the final point (well inside the 0.5 m catch radius, so position error does not stop the ghost short)
 
   Pid heading_pid_{2.0, 0.0, 0.3};   // heading error -> angular.z
   Pid altitude_pid_{1.5, 0.0, 0.2};  // z error -> linear.z

@@ -40,6 +40,7 @@ find_package(visualization_msgs REQUIRED)
 # Add any new .cpp files you write to this list
 add_library(ghost_brain_component SHARED
   src/controller.cpp
+  src/explorer.cpp
   src/ghost_brain_node.cpp
   src/localizer.cpp
   src/planner.cpp
