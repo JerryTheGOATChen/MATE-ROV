@@ -2,6 +2,14 @@
 
 > 🎃 **This is the `hackathon/halloween` branch.** Start with [HACKATHON.md](HACKATHON.md).
 
+## 👻 Ghost brain demo (team/alex-team)
+
+Our ghost scoring **68 points** (all 6 people haunted, 8 candies, 0 bonks) in a full 2-minute game, using only its own sensors. The view is top-down: purple is the ghost, red dots are people, orange dots are candy, the red X is the brain's current target and the dashed line is its planned route.
+
+![Ghost brain run, score 68](docs/ghost_run_68.gif)
+
+Full video (2x speed): [docs/ghost_run_68.mp4](docs/ghost_run_68.mp4). The code is in [src/action/ghost_brain](src/action/ghost_brain).
+
 A starting point for WATonomous robotics projects. It contains the infrastructure from [wato_monorepo](https://github.com/WATonomous/wato_monorepo) without any robot-specific code. That includes the `watod` CLI, multi-stage Docker builds, docker compose profiles, the Zenoh router, Foxglove bridge, log viewer, unit testing with `wato_test`, pre-commit, and CI.
 
 Every module builds, runs, and passes its tests out of the box. Each one contains a bringup package and a single example lifecycle node that you replace with real code.
