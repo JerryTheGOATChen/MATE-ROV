@@ -4,11 +4,23 @@
 
 ## 👻 Ghost brain demo (team/alex-team)
 
-My ghost scoring **68 points** (all 6 people haunted, 8 candies, 0 bonks) in a full 2-minute game, using only its own sensors. The view is top-down: purple is the ghost, red dots are people, orange dots are candy, the red X is the brain's current target and the dashed line is its planned route.
+My ghost plays full 2-minute games using only its own sensors. The code is in [src/action/ghost_brain](src/action/ghost_brain).
+
+### Foxglove recording: 66 points
+
+All 6 people haunted, 6 candies, 7 bonks. This is a screen recording of the live Foxglove session: the 3D view, the map with the ghost's planned path, the brain's log, the depth camera and the leaderboard.
+
+![Foxglove recording of a ghost brain run, score 66](docs/ghost_foxglove_66.gif)
+
+Full video (real time): [docs/ghost_foxglove_66.mp4](docs/ghost_foxglove_66.mp4). The GIF above plays at 4x speed.
+
+### Top-down replay: 68 points
+
+All 6 people haunted, 8 candies, 19 bonks. The view is top-down: purple is the ghost, red dots are people, orange dots are candy, the red X is the brain's current target and the dashed line is its planned route.
 
 ![Ghost brain run, score 68](docs/ghost_run_68.gif)
 
-Full video (2x speed): [docs/ghost_run_68.mp4](docs/ghost_run_68.mp4). The code is in [src/action/ghost_brain](src/action/ghost_brain).
+Full video (2x speed): [docs/ghost_run_68.mp4](docs/ghost_run_68.mp4).
 
 A starting point for WATonomous robotics projects. It contains the infrastructure from [wato_monorepo](https://github.com/WATonomous/wato_monorepo) without any robot-specific code. That includes the `watod` CLI, multi-stage Docker builds, docker compose profiles, the Zenoh router, Foxglove bridge, log viewer, unit testing with `wato_test`, pre-commit, and CI.
 
