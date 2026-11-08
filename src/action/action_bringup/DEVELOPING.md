@@ -11,13 +11,15 @@ Nav2 components that are not launched: map server and AMCL (the vehicle localize
 
 ## Costmaps
 
-The global costmap holds the sonar's obstacles for `CostmapPlanner3D`. Its layer is the stock [spatio-temporal voxel layer](https://github.com/SteveMacenski/spatio_temporal_voxel_layer) (STVL). STVL marks each return as a 3D voxel, then flattens the voxels into the 2D costmap, so an obstacle at any depth blocks its x, y. An obstacle the sonar no longer sees is forgotten after 60 s, and water the sonar sees without a return clears much sooner. The memory is long because the sonar looks only ahead while the vehicle also moves sideways and backward: with a short memory, the vehicle can back into an obstacle it has just gone around.
+The global costmap holds the sonar's obstacles in 3D, in `rov_nav2_plugins`' [`VoxelLayer3D`](../rov_nav2_plugins/src/costmap/voxel_layer_3d.md). The layer marks every return as a voxel, the floor included, clears the water between the sonar and each return, and inflates the voxels in 3D. It remembers each voxel as unknown, free or occupied, so a planner can tell water the sonar has seen from water it hasn't. What the sonar no longer sees is forgotten after 200 s. The memory is long because the sonar looks only ahead while the vehicle also moves sideways and backward: with a short memory, the vehicle can back into an obstacle it has just gone around.
 
-The inflation layer keeps the route well clear of obstacles, more than the vehicle's 0.35 m radius needs, because pure pursuit cuts inside the route's corners. In simulation the hull stays about 0.6 m from obstacles it goes around.
+Nothing is written into the 2D costmap, which stays empty. Projecting 3D obstacles into 2D either blocks every depth at an obstacle, so the floor blocks everything, or blocks none, so a box on the floor disappears. The layer only borrows the costmap's window, frame, footprint and update loop, and `VoxelPlanner3D`, in the same planner server, reads its costs directly.
 
-Heights are z in the `map` frame, which is negative underwater. Returns within 0.2 m of the floor, below z = -3.8 m, are ignored. A sonar that measures height, like the team's, sees the floor ahead of the vehicle, and those returns are the floor itself. A sonar that can't measure height would place floor echoes at the vehicle's depth, where this can't catch them. In testing with one, the floor became a wall that blocked every depth and never cleared.
+The inflation keeps the route well clear of obstacles, more than the vehicle's 0.35 m radius needs, because pure pursuit cuts inside the route's corners. Vertically the clearance scales with the vehicle's half-height: cost reaches zero 0.57 m above the floor.
 
-The costmap is 2D on purpose for now. Going over and under obstacles needs a 3D planner that reads a 3D map, planned for once the team's 3D sonar is publishing. The controller, checkers and behavior trees are already 3D.
+Heights are z in the `map` frame, which is negative underwater. The grid runs from below the floor to the surface. It needs a sonar that measures height, like the team's: a sonar that can't would place floor echoes at the vehicle's depth, and the floor would become a wall at every depth the vehicle visits.
+
+`VoxelPlanner3D` routes over, under or around obstacles through those costs. It prefers water the sonar has seen (`unknown_cost`) and going around to going over or under (`z_weight`), but it will cross unseen water, so the behavior tree's replanning once a second is what keeps the route clear of obstacles found on the way. In a closed-loop test of a route over a 0.9 m block, the hull stays 0.2 m clear with a vehicle that lags its commands by 0.5 s.
 
 ## Behavior trees
 
@@ -29,7 +31,7 @@ Neither tree has recovery behaviors: a failure goes back to whoever sent the goa
 ## Current hacks
 
 - The local costmap loads a single inflation layer with nothing to inflate. Nav2's controller server requires a costmap, the controller ignores it, and a ROS parameter file cannot express an empty plugin list.
-- The global costmap is sized for a 20 x 12 m pool, 4 m deep. Resize it, and its floor height, for the competition pool.
+- The global costmap is sized for a 20 x 12 m pool, 4 m deep. Resize it, and the voxel layer's `min_z`, for the competition pool.
 
 ## Testing
 

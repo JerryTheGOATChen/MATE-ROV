@@ -61,6 +61,14 @@ missions:
       - {x: 8.0, y: 3.0, z: -1.5}
     obstacles:  # vertical cylinders the vehicle's center must stay out of
       - {x: 5.0, y: 3.0, radius_m: 0.6}  # the obstacle's radius plus the vehicle's half-width
+
+  - name: over_block
+    waypoints:
+      - {x: 8.0, y: 0.0, z: -3.5}
+    obstacles:
+      # z_min and z_max bound an obstacle that doesn't span every depth: its bottom and top, plus
+      # the vehicle's half-height. Either may be left out.
+      - {x: 5.0, y: 0.0, radius_m: 0.9, z_min: -4.1, z_max: -2.9}
 ```
 
 Each mission starts wherever the previous one ended.
@@ -75,6 +83,6 @@ Each mission starts wherever the previous one ended.
 | path deviation | The robot stays within `max_path_deviation_m` of the path the planner published. When Nav2 replans, each position is checked against the plan it was following |
 | commanded speed | No `cmd_vel` exceeds `max_speed` on any axis |
 | stop command | Only when expecting cancellation: the last `cmd_vel` after canceling is zero |
-| obstacle clearance | Only for missions with `obstacles`: the robot never enters one |
+| obstacle clearance | Only for missions with `obstacles`: the robot never enters one, measured in 3D for obstacles with `z_min` or `z_max` |
 
 The runner reads the robot's pose from TF (`frame_id` to `base_link`), or from `--truth-topic`, the plan from `plan`, and commands from `cmd_vel` (`geometry_msgs/TwistStamped`). If Nav2's commands are remapped, remap the runner's too, such as `--ros-args -r cmd_vel:=/nav2/cmd_vel`.

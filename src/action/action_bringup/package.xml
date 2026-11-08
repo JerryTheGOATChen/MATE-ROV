@@ -21,7 +21,6 @@
   <exec_depend>nav2_lifecycle_manager</exec_depend>
   <exec_depend>nav2_planner</exec_depend>
   <exec_depend>rov_nav2_plugins</exec_depend>
-  <exec_depend>spatio_temporal_voxel_layer</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

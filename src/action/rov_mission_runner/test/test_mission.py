@@ -93,7 +93,19 @@ def test_a_mission_can_list_obstacles():
     assert len(mission.obstacles) == 1
     assert (mission.obstacles[0].x, mission.obstacles[0].y) == (5.0, 3.0)
     assert mission.obstacles[0].radius == 0.6
+    assert mission.obstacles[0].z_min == -math.inf
+    assert mission.obstacles[0].z_max == math.inf
     assert parse_missions(mission_file(DIVE)).missions[0].obstacles == ()
+
+
+def test_an_obstacle_can_span_only_some_depths():
+    over = {
+        **DIVE,
+        "obstacles": [{"x": 5, "y": 3, "radius_m": 0.6, "z_min": -4.1, "z_max": -3.0}],
+    }
+    obstacle = parse_missions(mission_file(over)).missions[0].obstacles[0]
+
+    assert (obstacle.z_min, obstacle.z_max) == (-4.1, -3.0)
 
 
 @pytest.mark.parametrize(
@@ -116,6 +128,17 @@ def test_a_mission_can_list_obstacles():
         ([DIVE, DIVE], "repeated: dive"),
         ([{**DIVE, "obstacles": {"x": 1}}], "obstacles must be a list"),
         ([{**DIVE, "obstacles": [{"x": 1, "y": 1}]}], "missing radius_m"),
+        (
+            [
+                {
+                    **DIVE,
+                    "obstacles": [
+                        {"x": 1, "y": 1, "radius_m": 1, "z_min": 0, "z_max": -1}
+                    ],
+                }
+            ],
+            "z_min must be below z_max",
+        ),
     ],
 )
 def test_malformed_missions_are_rejected(missions, message):
