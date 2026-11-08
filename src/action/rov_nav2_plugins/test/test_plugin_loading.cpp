@@ -37,7 +37,7 @@ bool loads(const std::string & base_class, const std::string & plugin)
 
 TEST_CASE("Nav2 can load every plugin by name", "[plugins]")
 {
-  REQUIRE(loads<nav2_core::GlobalPlanner>("nav2_core::GlobalPlanner", "rov_nav2_plugins::CostmapPlanner3D"));
+  REQUIRE(loads<nav2_core::GlobalPlanner>("nav2_core::GlobalPlanner", "rov_nav2_plugins::OctomapPlanner3D"));
   REQUIRE(loads<nav2_core::Controller>("nav2_core::Controller", "rov_nav2_plugins::PurePursuitController3D"));
   REQUIRE(loads<nav2_core::GoalChecker>("nav2_core::GoalChecker", "rov_nav2_plugins::GoalChecker3D"));
   REQUIRE(loads<nav2_core::ProgressChecker>("nav2_core::ProgressChecker", "rov_nav2_plugins::ProgressChecker3D"));

@@ -1,6 +1,6 @@
 # ROV Nav2 Plugins
 
-Nav2 loads these plugins through pluginlib: `plugins.xml` exports each class against its Nav2 base class, and the Nav2 servers create the ones named in their YAML configuration. The servers own all ROS communication, so the plugins only compute and none of them publishes or subscribes. Only `CostmapPlanner3D` reads a costmap, the global costmap of the sonar's obstacles; the others use only the costmaps' frames.
+Nav2 loads these plugins through pluginlib: `plugins.xml` exports each class against its Nav2 base class, and the Nav2 servers create the ones named in their YAML configuration. `OctomapPlanner3D` subscribes to the binary OctoMap; the other plugins use Nav2's server interfaces and costmap frames.
 
 ## Plugin Types
 
@@ -19,15 +19,15 @@ The base classes are defined in [`nav2_core`](https://github.com/ros-navigation/
 
 | Method | When Called | Purpose |
 |---|---|---|
-| `configure()` / `initialize()` | The server configures. The planner and controller have `configure()`; the checkers have `initialize()`. | Read parameters. The planner also loads and configures its 2D planner, and the controller takes its frames from the costmap. |
-| `activate()` / `deactivate()` | The server activates or deactivates. | Nothing, except that `CostmapPlanner3D` passes them on to its 2D planner. |
-| `cleanup()` | The server cleans up. | The controller drops its path, and `CostmapPlanner3D` unloads its 2D planner. |
+| `configure()` / `initialize()` | The server configures. The planner and controller have `configure()`; the checkers have `initialize()`. | Read parameters. The planner subscribes to the OctoMap, and the controller takes its frames from the costmap. |
+| `activate()` / `deactivate()` | The server activates or deactivates. | No extra work. |
+| `cleanup()` | The server cleans up. | The controller drops its path, and `OctomapPlanner3D` releases its subscription and map. |
 
 ### Navigation Hooks
 
 | Method | Plugin | When Called | Purpose |
 |---|---|---|---|
-| `createPlan()` | Planner | Each `ComputePathToPose` request, and once per leg of a `ComputePathThroughPoses` request. | Plan a route around the costmap's obstacles from the start to the goal. |
+| `createPlan()` | Planner | Each `ComputePathToPose` request, and once per leg of a `ComputePathThroughPoses` request. | Plan a collision-free route through the OctoMap from the start to the goal. |
 | `setPlan()` | Controller | A `FollowPath` goal starts, or a new path replaces the current one. | Follow the new path from its beginning, keeping the last command so acceleration stays limited. |
 | `computeVelocityCommands()` | Controller | Every control period until the goal is reached. | Return the next `cmd_vel`. |
 | `reset()` | Controller | The server publishes zero velocity: navigation succeeded, was canceled or failed. | Forget the path and the last command. |
@@ -40,7 +40,7 @@ The base classes are defined in [`nav2_core`](https://github.com/ros-navigation/
 
 ## Plugin Documentation
 
-- [CostmapPlanner3D](src/planner/costmap_planner_3d.md) -- Route around the sonar's obstacles with Nav2's Smac 2D planner, adding depth
+- [OctomapPlanner3D](src/planner/octomap_planner_3d.md) -- Search the sonar's OctoMap in x, y and z
 - [PurePursuitController3D](src/controller/pure_pursuit_controller_3d.md) -- 3D pure pursuit commanding surge, sway, heave and yaw rate
 - [GoalChecker3D](src/goal_checker/goal_checker_3d.md) -- Horizontal, vertical and heading errors all within tolerance at once
 - [ProgressChecker3D](src/progress_checker/progress_checker_3d.md) -- Moving in 3D or turning counts as progress

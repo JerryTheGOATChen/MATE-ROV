@@ -102,20 +102,39 @@ cleanup_bag() {
 
 trap cleanup_bag SIGINT SIGTERM
 
-# Get the infrastructure_bringup container name for dependency checking
-infra_container="${COMPOSE_PROJECT_NAME}-infrastructure_bringup-1"
+# Resolve containers through Compose instead of predicting their names. This keeps multiple watod
+# projects isolated on one Docker daemon and works with Compose's Windows/WSL2 naming behavior.
+compose_args=(
+  --env-file "$MODULES_DIR/.env"
+  -f "$MODULES_DIR/docker-compose.yaml"
+)
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  compose_args+=(-f "$MODULES_DIR/docker-compose.watcloud.yaml")
+fi
 
-# Check if infrastructure_bringup is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${infra_container}$"; then
-  echo "Error: Infrastructure bringup container '${infra_container}' is not running."
+infra_container_id=$(docker compose "${compose_args[@]}" ps -q infrastructure_bringup)
+if [[ -z "$infra_container_id" ]] ||
+  [[ "$(docker inspect -f '{{.State.Running}}' "$infra_container_id" 2>/dev/null)" != "true" ]]; then
+  echo "Error: This Compose project's infrastructure bringup container is not running."
   echo "Please start watod services first with './watod up -d'"
   exit 1
+fi
+
+network_args=(--network host)
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  network_namespace_id=$(docker compose "${compose_args[@]}" ps -q network_namespace)
+  if [[ -z "$network_namespace_id" ]]; then
+    echo "Error: This Compose project's network namespace container is not running."
+    echo "Please start watod services first with './watod up -d'"
+    exit 1
+  fi
+  network_args=(--network "container:$network_namespace_id")
 fi
 
 docker run --rm \
   --ulimit memlock=-1 \
   --ipc host \
-  --network host \
+  "${network_args[@]}" \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \

@@ -22,19 +22,22 @@ bt_navigator:
 planner_server:
   ros__parameters:
     expected_planner_frequency: 1.0
-    planner_plugins: ["CostmapPlanner3D"]
-    # Routes around obstacles in the global costmap: Nav2's Smac 2D planner finds the horizontal
-    # route, and the plugin adds depth.
-    CostmapPlanner3D:
-      plugin: "rov_nav2_plugins::CostmapPlanner3D"
-      xy_planner: "nav2_smac_planner::SmacPlanner2D"
-      z_before_xy: false  # true: dive or surface first, then move horizontally
-      xy:
-        # A goal inside an obstacle fails. With a tolerance, the path would end in the obstacle,
-        # because it always ends exactly at the goal.
-        tolerance: 0.0
-        max_planning_time: 1.0  # s
-        cost_travel_multiplier: 2.0  # keeps the route away from inflated obstacles
+    planner_plugins: ["OctomapPlanner3D"]
+    # A* searches the OctoMap in x, y and z. The collision radius includes the vehicle's 0.35 m
+    # half-width plus 0.10 m of clearance.
+    OctomapPlanner3D:
+      plugin: "rov_nav2_plugins::OctomapPlanner3D"
+      octomap_topic: "/octomap_binary"
+      # The server publishes a complete binary tree for every 5 Hz sonar frame. The planner runs
+      # at 1 Hz, so decoding at 2 Hz keeps obstacle latency low without repeatedly rebuilding a
+      # tree that cannot be used by an intervening plan.
+      map_update_interval: 0.5
+      planning_resolution: 0.25
+      collision_radius: 0.45
+      min_bounds: [-11.0, -7.0, -4.0]
+      max_bounds: [11.0, 7.0, 0.0]
+      unknown_is_occupied: false
+      max_expansions: 250000
 
 controller_server:
   ros__parameters:
@@ -69,10 +72,9 @@ controller_server:
       max_accel_z: 0.3
       max_accel_yaw: 0.6
 
-# The local costmap is unused: the controller follows the planned path without checking it, and
-# replanning once a second (see the behavior trees) handles obstacles seen along the way. A ROS
-# parameter file cannot express an empty plugin list, so it loads one inflation layer, which has
-# nothing to inflate.
+# The local costmap is unused: the controller follows the planned path without checking it. Keep a
+# tiny, low-rate placeholder because Nav2's controller server requires a Costmap2DROS lifecycle
+# object. It contains no obstacle source; all obstacle state lives in the OctoMap.
 local_costmap:
   local_costmap:
     ros__parameters:
@@ -81,15 +83,16 @@ local_costmap:
       rolling_window: true
       width: 3
       height: 3
-      resolution: 0.1
-      update_frequency: 5.0
-      publish_frequency: 1.0
+      resolution: 0.5
+      update_frequency: 1.0
+      publish_frequency: 0.0
       plugins: ["inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
 
-# Obstacles from the sonar, for CostmapPlanner3D, kept by the stock spatio-temporal voxel layer
-# (STVL). See DEVELOPING.md.
+# Nav2 also requires a global Costmap2DROS even though OctomapPlanner3D reads /octomap_binary
+# directly. A coarse, non-publishing placeholder preserves the pool bounds and frame plumbing
+# without maintaining the original 30,800-cell 2D projection.
 global_costmap:
   global_costmap:
     ros__parameters:
@@ -102,44 +105,12 @@ global_costmap:
       height: 14
       origin_x: -11.0
       origin_y: -7.0
-      resolution: 0.1
+      resolution: 1.0
       robot_radius: 0.35  # m, BlueROV2 Heavy half-width plus a margin
-      update_frequency: 2.0
-      publish_frequency: 1.0
-      always_send_full_costmap: true  # Foxglove does not apply partial costmap updates
+      update_frequency: 0.5
+      publish_frequency: 0.0
+      always_send_full_costmap: false
       track_unknown_space: false
-      plugins: ["stvl_layer", "inflation_layer"]
-      stvl_layer:
-        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
-        voxel_size: 0.1  # m, the costmap's resolution
-        decay_model: 0  # linear
-        # s, how long an obstacle out of the sonar's view is remembered. The sonar looks only ahead,
-        # but the vehicle also moves sideways and backward, so it must remember what it has passed.
-        # Water the sonar sees without a return clears much sooner (decay_acceleration).
-        voxel_decay: 60.0
-        publish_voxel_map: true
-        observation_sources: sonar
-        sonar:
-          topic: /sonar/points
-          data_type: "PointCloud2"
-          marking: true
-          clearing: true
-          obstacle_range: 8.0  # m
-          observation_persistence: 0.5  # s, one costmap update, so every sonar frame is marked
-          # z in the map frame, which is negative underwater. Returns within 0.2 m of the floor
-          # are the floor itself.
-          min_obstacle_height: -3.8
-          max_obstacle_height: 0.0
-          # The sonar's field of view, where voxels without a return clear faster. Model 1 (3D
-          # lidar) takes x forward, as the sonar's frame does.
-          model_type: 1
-          horizontal_fov_angle: 1.57  # rad
-          vertical_fov_angle: 0.70  # rad
-          min_z: 0.3  # m, horizontal range
-          max_z: 10.0  # m
-          decay_acceleration: 15.0  # 1/s^2
-      # Keeps the route well clear of obstacles: pure pursuit cuts inside the route's corners
+      plugins: ["inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 1.0
-        cost_scaling_factor: 3.0

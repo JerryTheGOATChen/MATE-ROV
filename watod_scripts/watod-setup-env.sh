@@ -117,8 +117,15 @@ RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-"rmw_zenoh_cpp"}
 ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_router_config.json5"}
 ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI:-"/opt/watonomous/rmw_zenoh_session_config.json5"}
 
-# Docker socket path (needed for log viewer)
-# DOCKER_HOST should be automaticall set in any WATCloud SLURM session
+# Docker socket path (needed for log viewer). Respect an explicit DOCKER_HOST first. Otherwise,
+# ask the active Docker context so Docker Desktop's per-user macOS socket is discovered without
+# putting a developer-specific home directory in a committed configuration file.
+if [[ -z ${DOCKER_HOST:-} ]] && command -v docker >/dev/null 2>&1; then
+  context_docker_host=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)
+  if [[ $context_docker_host == unix://* ]]; then
+    DOCKER_HOST=$context_docker_host
+  fi
+fi
 DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
 DOCKER_SOCKET_PATH=${DOCKER_HOST#unix://} # strip the "unix://" prefix to get path
 

@@ -1,0 +1,13 @@
+* text=auto
+
+# Scripts execute inside Linux/WSL2 and must not acquire Windows CRLF line endings.
+*.sh text eol=lf
+*.bash text eol=lf
+*.py text eol=lf
+watod text eol=lf
+
+# Docker and ROS configuration is consumed by Linux containers on every supported host.
+*.Dockerfile text eol=lf
+Dockerfile text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

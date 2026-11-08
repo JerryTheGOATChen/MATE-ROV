@@ -1,0 +1,395 @@
+{
+  "configById": {
+    "3D!materov": {
+      "foxglovePanelTitle": "MATE ROV — Gazebo Pool",
+      "cameraState": {
+        "distance": 24,
+        "perspective": true,
+        "phi": 0.65,
+        "thetaOffset": 0.8,
+        "target": [0, 0, -2],
+        "targetOffset": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 0.7853981633974483,
+        "near": 0.01,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "base_link",
+      "fixedFrame": "map",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "editable": false,
+          "showLabel": false,
+          "axisScale": 0.5,
+          "lineWidth": 1,
+          "labelSize": 0.2
+        },
+        "ignoreColladaUpAxis": false,
+        "labelScaleFactor": 1,
+        "meshUpAxis": "y_up"
+      },
+      "transforms": {
+        "frame:map": { "visible": true },
+        "frame:odom": { "visible": true },
+        "frame:base_link": { "visible": true },
+        "frame:sonar_link": { "visible": true }
+      },
+      "topics": {
+        "/sim/foxglove_scene": {
+          "visible": true
+        },
+        "/sim/foxglove_rov": {
+          "visible": true
+        },
+        "/plan": {
+          "visible": true,
+          "color": "#ff9f1c",
+          "lineWidth": 0.08
+        },
+        "/odom": {
+          "visible": true,
+          "color": "#4cc9f0"
+        },
+        "/sim/ground_truth": {
+          "visible": true,
+          "color": "#80ed99"
+        },
+        "/sonar/points": {
+          "visible": false,
+          "pointSize": 3,
+          "colorMode": "flat",
+          "flatColor": "#f72585"
+        },
+        "/occupied_cells_vis_array": {
+          "visible": false
+        },
+        "/octomap_point_cloud_centers": {
+          "visible": false,
+          "pointSize": 8,
+          "colorMode": "flat",
+          "flatColor": "#39ff14"
+        }
+      },
+      "layers": {
+        "6f8a320c-4151-4ad3-9df8-materovpool01": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Pool floor",
+          "instanceId": "6f8a320c-4151-4ad3-9df8-materovpool01",
+          "layerId": "foxglove.Grid",
+          "size": 22,
+          "divisions": 22,
+          "lineWidth": 1,
+          "color": "#246b8e",
+          "position": [0, 0, -4],
+          "rotation": [0, 0, 0],
+          "order": 1,
+          "frameId": "map"
+        }
+      },
+      "publish": {
+        "type": "pose",
+        "poseTopic": "/goal_pose",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      }
+    },
+    "3D!octomap": {
+      "foxglovePanelTitle": "OctoMap — Sonar Interpretation",
+      "cameraState": {
+        "distance": 18,
+        "perspective": true,
+        "phi": 1,
+        "thetaOffset": 0.8,
+        "target": [0, 0, -2],
+        "targetOffset": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 0.7853981633974483,
+        "near": 0.01,
+        "far": 5000
+      },
+      "followMode": "follow-position",
+      "followTf": "base_link",
+      "fixedFrame": "map",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "editable": false,
+          "showLabel": true,
+          "axisScale": 0.5,
+          "lineWidth": 1,
+          "labelSize": 0.2
+        },
+        "ignoreColladaUpAxis": false,
+        "labelScaleFactor": 1,
+        "meshUpAxis": "y_up"
+      },
+      "transforms": {
+        "frame:map": { "visible": true },
+        "frame:odom": { "visible": false },
+        "frame:base_link": { "visible": true },
+        "frame:sonar_link": { "visible": true }
+      },
+      "topics": {
+        "/sim/foxglove_scene": {
+          "visible": false
+        },
+        "/sim/foxglove_rov": {
+          "visible": false
+        },
+        "/plan": {
+          "visible": false
+        },
+        "/odom": {
+          "visible": false
+        },
+        "/sim/ground_truth": {
+          "visible": false
+        },
+        "/sonar/points": {
+          "visible": true,
+          "pointSize": 3,
+          "colorMode": "flat",
+          "flatColor": "#f72585"
+        },
+        "/occupied_cells_vis_array": {
+          "visible": true
+        },
+        "/octomap_point_cloud_centers": {
+          "visible": true,
+          "pointSize": 8,
+          "colorMode": "flat",
+          "flatColor": "#39ff14"
+        }
+      },
+      "layers": {
+        "6f8a320c-4151-4ad3-9df8-octomapgrid01": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "OctoMap reference grid",
+          "instanceId": "6f8a320c-4151-4ad3-9df8-octomapgrid01",
+          "layerId": "foxglove.Grid",
+          "size": 22,
+          "divisions": 22,
+          "lineWidth": 1,
+          "color": "#173b52",
+          "position": [0, 0, -4],
+          "rotation": [0, 0, 0],
+          "order": 1,
+          "frameId": "map"
+        }
+      }
+    },
+    "Teleop!planar": {
+      "foxglovePanelTitle": "ROV Drive — Forward / Sway",
+      "topic": "/foxglove/planar_cmd_vel",
+      "publishRate": 10,
+      "upButton": {
+        "field": "linear-x",
+        "value": 0.35
+      },
+      "downButton": {
+        "field": "linear-x",
+        "value": -0.35
+      },
+      "leftButton": {
+        "field": "linear-y",
+        "value": 0.25
+      },
+      "rightButton": {
+        "field": "linear-y",
+        "value": -0.25
+      },
+      "stopButton": {
+        "field": "linear-x",
+        "value": 0
+      },
+      "autoSendStopOnRelease": true
+    },
+    "Teleop!depth_yaw": {
+      "foxglovePanelTitle": "ROV Depth / Yaw",
+      "topic": "/foxglove/depth_yaw_cmd_vel",
+      "publishRate": 10,
+      "upButton": {
+        "field": "linear-z",
+        "value": 0.2
+      },
+      "downButton": {
+        "field": "linear-z",
+        "value": -0.2
+      },
+      "leftButton": {
+        "field": "angular-z",
+        "value": 0.4
+      },
+      "rightButton": {
+        "field": "angular-z",
+        "value": -0.4
+      },
+      "stopButton": {
+        "field": "linear-z",
+        "value": 0
+      },
+      "autoSendStopOnRelease": true
+    },
+    "Plot!depth": {
+      "foxglovePanelTitle": "Depth: estimate vs truth",
+      "paths": [
+        {
+          "value": "/odom.pose.pose.position.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#4cc9f0",
+          "label": "EKF depth"
+        },
+        {
+          "value": "/sim/ground_truth.pose.pose.position.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#80ed99",
+          "label": "Ground-truth depth"
+        }
+      ],
+      "minYValue": "-4.5",
+      "maxYValue": "0.5",
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "timeRange": "latest",
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 20
+    },
+    "Plot!velocity": {
+      "foxglovePanelTitle": "Estimated body velocity",
+      "paths": [
+        {
+          "value": "/odom.twist.twist.linear.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#f72585",
+          "label": "x"
+        },
+        {
+          "value": "/odom.twist.twist.linear.y",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#ff9f1c",
+          "label": "y"
+        },
+        {
+          "value": "/odom.twist.twist.linear.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#4cc9f0",
+          "label": "z"
+        }
+      ],
+      "minYValue": "",
+      "maxYValue": "",
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "timeRange": "latest",
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 20
+    },
+    "Plot!gyro": {
+      "foxglovePanelTitle": "IMU angular velocity",
+      "paths": [
+        {
+          "value": "/sensors/imu.angular_velocity.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#f72585",
+          "label": "roll rate"
+        },
+        {
+          "value": "/sensors/imu.angular_velocity.y",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#ff9f1c",
+          "label": "pitch rate"
+        },
+        {
+          "value": "/sensors/imu.angular_velocity.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#4cc9f0",
+          "label": "yaw rate"
+        }
+      ],
+      "minYValue": "",
+      "maxYValue": "",
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "timeRange": "latest",
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 20
+    },
+    "RawMessages!truth": {
+      "foxglovePanelTitle": "Ground truth",
+      "topicPath": "/sim/ground_truth",
+      "diffTopicPath": "",
+      "diffMethod": "custom",
+      "diffEnabled": false,
+      "showFullMessageForDiff": false,
+      "defaultExpanded": false
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "linkedGlobalVariables": [],
+  "playbackConfig": {
+    "speed": 1,
+    "messageOrder": "receiveTime"
+  },
+  "layout": {
+    "direction": "column",
+    "first": {
+      "direction": "row",
+      "first": "3D!materov",
+      "second": "3D!octomap",
+      "splitPercentage": 50
+    },
+    "second": {
+      "direction": "row",
+      "first": "Plot!depth",
+      "second": {
+        "direction": "row",
+        "first": "Plot!velocity",
+        "second": {
+          "direction": "row",
+          "first": "Plot!gyro",
+          "second": {
+            "direction": "column",
+            "first": "Teleop!planar",
+            "second": "Teleop!depth_yaw",
+            "splitPercentage": 50
+          },
+          "splitPercentage": 50
+        },
+        "splitPercentage": 34
+      },
+      "splitPercentage": 25
+    },
+    "splitPercentage": 75
+  }
+}

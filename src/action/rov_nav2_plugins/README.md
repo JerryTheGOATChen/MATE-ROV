@@ -6,7 +6,7 @@ Nav2's stock plugins are 2D. They ignore depth, so they report success at the wr
 
 ## Plugins
 
-- [CostmapPlanner3D](src/planner/costmap_planner_3d.md) -- Global planner: routes around the costmap's obstacles with Nav2's Smac 2D planner, adding depth
+- [OctomapPlanner3D](src/planner/octomap_planner_3d.md) -- Global planner: searches a true 3D OctoMap and routes beside, above or below obstacles
 - [PurePursuitController3D](src/controller/pure_pursuit_controller_3d.md) -- Controller: 3D pure pursuit commanding surge, sway, heave and yaw rate within velocity and acceleration limits
 - [GoalChecker3D](src/goal_checker/goal_checker_3d.md) -- Goal checker: horizontal, vertical and heading errors all within tolerance at once
 - [ProgressChecker3D](src/progress_checker/progress_checker_3d.md) -- Progress checker: moving in 3D or turning counts as progress
@@ -20,9 +20,10 @@ Select the plugins in the Nav2 parameter file, as [`action_bringup/config/nav2.y
 ```yaml
 planner_server:
   ros__parameters:
-    planner_plugins: ["CostmapPlanner3D"]
-    CostmapPlanner3D:
-      plugin: "rov_nav2_plugins::CostmapPlanner3D"
+    planner_plugins: ["OctomapPlanner3D"]
+    OctomapPlanner3D:
+      plugin: "rov_nav2_plugins::OctomapPlanner3D"
+      octomap_topic: "/octomap_binary"
 
 controller_server:
   ros__parameters:
@@ -46,4 +47,4 @@ The controller commands body-frame velocities in `cmd_vel`: x forward, y left, z
 ## Assumptions
 
 - The vehicle is holonomic in the horizontal plane (vectored thrusters, like a BlueROV2 Heavy) and holds itself level in roll and pitch.
-- Obstacles come from the global costmap, which is 2D: the vehicle goes around them, never over or under. `action_bringup` fills the costmap from the sonar's point cloud.
+- Obstacles come from `/octomap_binary`, which is fully 3D. `action_bringup` fills it from the sonar point cloud with `octomap_server`.

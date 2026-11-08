@@ -29,6 +29,8 @@ find_package(nav2_core REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(nav2_util REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(octomap REQUIRED)
+find_package(octomap_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
@@ -44,8 +46,8 @@ add_library(${PROJECT_NAME} SHARED
   src/controller/controller_math.cpp
   src/controller/pure_pursuit_controller_3d.cpp
   src/goal_checker/goal_checker_3d.cpp
-  src/planner/costmap_planner_3d.cpp
-  src/planner/planner_math.cpp
+  src/planner/octomap_planner.cpp
+  src/planner/octomap_planner_3d.cpp
   src/progress_checker/progress_checker_3d.cpp
 )
 
@@ -57,12 +59,15 @@ target_include_directories(${PROJECT_NAME}
 
 # nav2_core is header-only and exports include directories rather than a target
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${nav2_core_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${OCTOMAP_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     Eigen3::Eigen
     nav2_costmap_2d::nav2_costmap_2d_core
     nav2_util::nav2_util_core
+    ${OCTOMAP_LIBRARIES}
+    ${octomap_msgs_TARGETS}
     pluginlib::pluginlib
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
@@ -97,10 +102,9 @@ if(BUILD_TESTING)
 
   # Algorithms, independent of Nav2 and ROS communication
   add_wato_test(test_controller_math test/controller/test_controller_math.cpp LIBRARIES ${PROJECT_NAME})
-  add_wato_test(test_planner_math test/planner/test_planner_math.cpp LIBRARIES ${PROJECT_NAME})
+  add_wato_test(test_octomap_planner test/planner/test_octomap_planner.cpp LIBRARIES ${PROJECT_NAME})
 
   # Nav2 plugin interfaces
-  add_wato_test(test_costmap_planner_3d test/planner/test_costmap_planner_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_pure_pursuit_controller_3d test/controller/test_pure_pursuit_controller_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_goal_checker_3d test/goal_checker/test_goal_checker_3d.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_progress_checker_3d test/progress_checker/test_progress_checker_3d.cpp LIBRARIES ${PROJECT_NAME})

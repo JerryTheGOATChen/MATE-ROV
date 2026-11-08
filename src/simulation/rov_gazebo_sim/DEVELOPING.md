@@ -30,7 +30,9 @@ The sonar is a GPU lidar with a 3D imaging sonar's field of view, so every retur
 
 ## Current hacks
 
-- It lives under `src/simulation/`, which no Docker image copies, so it runs on the host. In a container it would need Gazebo in the image and a GPU for the sonar. A real simulation module would need its own Dockerfile and compose service, which is an infrastructure change.
+- It lives under `src/simulation/`. The action image also copies it so macOS developers can run
+  the headless Gazebo server through Docker Desktop; native ROS 2 hosts can still build and run it
+  directly. The container uses software rendering for the sonar on macOS.
 - Sensor noise is off by default for now, so the missions test navigation alone. The noise launch arguments turn it back on; tuning the missions for noisy localization comes later.
 - Keep colons out of comments in `models/rov.sdf.xacro`. The spawn launch file passes the generated model as a ROS parameter, which launch parses as YAML.
 

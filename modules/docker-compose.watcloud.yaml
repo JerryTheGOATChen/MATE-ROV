@@ -18,11 +18,11 @@ services:
   network_namespace:
     image: busybox:latest
     init: true
-    container_name: watod_network_namespace
     command: sleep infinity
     restart: unless-stopped
     ports:
       - "${FOXGLOVE_BRIDGE_PORT:?}:${FOXGLOVE_BRIDGE_PORT:?}"
+      - "${TOPIC_HEALTHCHECKER__PORT:?}:${TOPIC_HEALTHCHECKER__PORT:?}"
 
 #################### INFRASTRUCTURE SERVICES ####################
   log_viewer:

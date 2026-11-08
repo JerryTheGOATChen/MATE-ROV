@@ -90,3 +90,25 @@ launch:
       exec: "static_transform_publisher"
       name: "base_link_to_sonar_link"
       args: "--x 0.25 --frame-id base_link --child-frame-id sonar_link"
+
+  # Recreates the pool and moving ROV as standard visualization markers so the important scene is
+  # available in Foxglove as well as in Gazebo's renderer.
+  - node:
+      pkg: "rov_gazebo_sim"
+      exec: "foxglove_scene.py"
+      name: "foxglove_scene"
+      output: "screen"
+      param:
+        - name: use_sim_time
+          value: true
+
+  # Foxglove's Teleop panel publishes an unstamped Twist. Keep the vehicle interface unchanged by
+  # stamping, combining and clamping those manual commands in this simulation-only adapter.
+  - node:
+      pkg: "rov_gazebo_sim"
+      exec: "foxglove_teleop_adapter.py"
+      name: "foxglove_teleop_adapter"
+      output: "screen"
+      param:
+        - name: use_sim_time
+          value: true

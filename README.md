@@ -29,6 +29,69 @@ cp watod-config.sh watod-config.local.sh   # then set ACTIVE_MODULES
 
 Append `:dev` to a module (for example, `ACTIVE_MODULES="perception:dev"`) to get a DevContainer with `src/<module>` mounted for live editing. See [DEVELOPING.md](DEVELOPING.md) for the full guide.
 
+## Gazebo on macOS, Linux, and Windows with WSL2
+
+The repository includes a shared Docker configuration for Gazebo Harmonic. This keeps Gazebo and
+ROS 2 inside the project image, so group members do not need to install them directly on their
+computers. It supports Docker Desktop on macOS, Docker Engine on native Linux, and Docker Desktop
+with WSL2 integration on Windows. Native Windows PowerShell is not supported by the Bash-based
+`watod` launcher.
+
+1. Install and start Docker Desktop on macOS/Windows, or Docker Engine with the Compose plugin on
+   Linux. On Windows, enable Docker Desktop's WSL2 integration and run these commands inside the
+   WSL2 terminal. Keeping the repository in the WSL filesystem rather than `/mnt/c` is recommended.
+2. From the repository root, create your ignored local configuration from the tracked example:
+
+   ```bash
+   cp watod-config.gazebo.sh watod-config.local.sh
+   ```
+
+3. Build and start the headless simulator:
+
+   ```bash
+   ./watod build
+   ./watod up -d
+   ```
+
+4. Check the services with `./watod ps`, or connect Foxglove to the address printed by `watod`.
+   Stop everything with `./watod down`.
+
+### Foxglove visualization
+
+Connect Foxglove to `ws://localhost:<FOXGLOVE_BRIDGE_PORT>` (port `11002` with the example local
+setup in this checkout). Then open the **Layouts** menu, choose **Import from file**, and select
+[`foxglove/mate_rov_gazebo.json`](foxglove/mate_rov_gazebo.json).
+
+The shared layout contains a `map`-frame 3D pool view with the pool walls and competition props,
+the moving ROV and its trail, planned path, odometry, ground-truth pose, sonar
+points and OctoMap occupied cells. It also includes plots comparing estimated and true depth, body
+velocity, IMU turn rates, and a ground-truth message inspector. If a developer uses a different
+`BASE_PORT`, use the Foxglove URL printed by `watod up` instead of port `11002`.
+
+The Foxglove scene is a clean ROS-marker reconstruction of Gazebo's world, not a second physics
+simulation. Gazebo remains responsible for motion, collisions and sensor generation. To record a
+run as an MCAP file for later Foxglove playback, open a second terminal and run:
+
+```bash
+./watod bag record -a -o mate_rov_run
+```
+
+Stop recording with `Ctrl+C`. The recording is saved under `bags/mate_rov_run/` and can be opened
+directly in Foxglove with the same layout.
+
+The example deliberately contains no username, home-directory path, Docker socket path, or fixed
+port. `watod` discovers those values for each developer. Personal changes belong in
+`watod-config.local.sh`, which Git ignores. Linux users running the physical ROV instead of Gazebo
+can continue using the normal `watod-config.sh` defaults.
+
+The Gazebo configuration uses a `materov_gazebo_<user>` Compose project by default. Compose-managed
+containers, networks, and volumes are therefore separate from older `watod_<user>` stacks on the
+same Docker daemon. It also uses the separate 11000-11009 host-port range by default. Images are
+tagged with the current Git branch as well, so building `cyrus` does not overwrite a groupmate's
+`main` image. Run `./watod down` from the matching checkout and config to stop only that simulator
+stack. Override `COMPOSE_PROJECT_NAME` or `BASE_PORT` in the ignored local config if those defaults
+are already in use.
+
 ## Starting a new project from this template
 
 1. Click **Use this template** on GitHub, or copy the repo.

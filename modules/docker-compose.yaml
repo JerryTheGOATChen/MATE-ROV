@@ -264,12 +264,13 @@ services:
         - "${ACTION_IMAGE}:main"
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch action_bringup action.launch.yaml"
+    command: /bin/bash -c "${ACTION_COMMAND:-ros2 launch action_bringup action.launch.yaml}"
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+      - LIBGL_ALWAYS_SOFTWARE=${LIBGL_ALWAYS_SOFTWARE:-0}
     depends_on:
       infrastructure_bringup:
         condition: service_started

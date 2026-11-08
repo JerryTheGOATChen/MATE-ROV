@@ -11,7 +11,21 @@ The ROV follows velocity commands and carries:
 
 ## Usage
 
-It runs on the host, with Gazebo Harmonic and ROS 2 Jazzy installed; see [DEVELOPING.md](DEVELOPING.md) for why. One-time setup from the repository root:
+On macOS, native Linux, or Windows with WSL2, use the repository's Docker setup. From the
+repository root:
+
+```bash
+cp watod-config.gazebo.sh watod-config.local.sh
+./watod build
+./watod up -d
+```
+
+This launches Gazebo Harmonic headlessly with the action stack. See the repository
+[`README.md`](../../../README.md#gazebo-on-macos-linux-and-windows-with-wsl2) for the full host
+instructions.
+
+For native development on a ROS 2 Jazzy host, install the dependencies and build once from the
+repository root:
 
 ```bash
 rosdep install --from-paths src/simulation src/action src/wato_test src/infrastructure/wato_lifecycle_manager --ignore-src -y
@@ -37,13 +51,26 @@ ros2 run rov_mission_runner mission_runner $(ros2 pkg prefix --share rov_gazebo_
 | `gyro_stddev` | 0 | IMU turn rate noise (rad/s) |
 | `sonar_stddev` | 0 | Sonar range noise (m) |
 
-Noise values are Gaussian standard deviations, and noise is off by default. To watch, run `ros2 launch foxglove_bridge foxglove_bridge_launch.xml` and connect Foxglove to `ws://localhost:8765`. Add a 3D panel with its display frame set to `map`, and turn on these topics:
+Noise values are Gaussian standard deviations, and noise is off by default. Docker users can import
+the repository's ready-made [`foxglove/mate_rov_gazebo.json`](../../../foxglove/mate_rov_gazebo.json)
+layout after connecting to the bridge address printed by `watod`. For a native host launch, run
+`ros2 launch foxglove_bridge foxglove_bridge_launch.xml`, connect Foxglove to
+`ws://localhost:8765`, and import the same layout. Its 3D panel uses the `map` display frame and
+shows these topics:
+- `/sim/foxglove_scene` (pool and competition props)
+- `/sim/foxglove_rov` (ROV body, heading and traveled path)
 - `/plan`
 - `/sonar/points`
-- `/global_costmap/costmap`
-- `/global_costmap/voxel_grid` (the costmap's 3D voxels)
+- `/occupied_cells_vis_array` (the OctoMap's occupied 3D cells)
 - `/odom` (the EKF's estimate)
 - `/sim/ground_truth` (where the ROV really is)
+
+The layout also contains two Foxglove Teleop pads: one for forward/backward and lateral movement,
+and one for depth and yaw. They publish ordinary `Twist` messages on dedicated Foxglove topics.
+`foxglove_teleop_adapter.py` combines them, adds the required `base_link` header, clamps them to the
+same limits as the controller, and forwards them to the existing `/cmd_vel` interface. Releasing a
+button sends stop, and a 0.4 s watchdog sends stop if Foxglove disconnects. Do not operate the pads
+while a Nav2 mission is active, because both are command sources for the same vehicle interface.
 
 ## The pool
 
@@ -63,6 +90,8 @@ Interior 20 x 12 m and 4 m deep, with the surface at z = 0 and the floor at z = 
 | Name | Type | Description |
 |------|------|-------------|
 | `/cmd_vel` (subscribed) | `geometry_msgs/TwistStamped` | Velocity in `base_link`, as Nav2 sends it |
+| `/foxglove/planar_cmd_vel` (subscribed) | `geometry_msgs/Twist` | Foxglove forward/backward and sway commands; adapted to `/cmd_vel` |
+| `/foxglove/depth_yaw_cmd_vel` (subscribed) | `geometry_msgs/Twist` | Foxglove heave and yaw commands; adapted to `/cmd_vel` |
 | `/odom` (published) | `nav_msgs/Odometry` | The EKF's estimate, also published as `odom -> base_link` |
 | `/sonar/points` (published) | `sensor_msgs/PointCloud2` | 3D sonar returns in `sonar_link`: 90° wide, 40° tall, 0.3 to 10 m, at 5 Hz |
 | `/sensors/dvl`, `/sensors/depth`, `/sensors/imu` (published) | `nav_msgs/Odometry`, `sensor_msgs/Imu` | The EKF's inputs |

@@ -11,7 +11,7 @@ Each plugin has a folder, the same under `src/`, `include/rov_nav2_plugins/` and
 | Folder | Nav2 plugin | Math it uses |
 |--------|-------------|--------------|
 | `common/` | | `pose4d`: x, y, z and yaw, with conversions to and from ROS messages |
-| `planner/` | `costmap_planner_3d` | `planner_math`: `add_depth()` adds depth and yaw to a 2D route |
+| `planner/` | `octomap_planner_3d` | `octomap_planner`: 26-connected A* and collision checks on an OctoMap |
 | `controller/` | `pure_pursuit_controller_3d` | `controller_math`: `Pursuit`, the control law below; `PathTracker`, a path parameterized by arc length, which tracks the vehicle's progress and interpolates the pose any distance ahead; and the speed profile and limit helpers |
 | `goal_checker/` | `goal_checker_3d` | `pose4d` only |
 | `progress_checker/` | `progress_checker_3d` | `pose4d` only |
@@ -38,7 +38,7 @@ Velocity and acceleration limits are per body axis. When one axis's limit binds,
 | Heading | Faces the lookahead point; goal heading ignored | Tracks the path's heading; goal heading checked |
 | Goal checker | Horizontal and vertical distance | Horizontal, vertical and heading, all at once |
 | Progress checker | 3D distance | 3D distance or turning |
-| Planner | Straight line; pose spacing from a truncated count; goal appended | Routes around the costmap's obstacles; always begins at the vehicle and ends exactly at the goal, including turns in place |
+| Planner | Straight line; pose spacing from a truncated count; goal appended | Searches an OctoMap in x, y and z; always begins at the vehicle and ends exactly at the goal |
 | Acceleration limits | Per axis, from a separate `tick_rate` | Direction-preserving, from the controller server's frequency |
 
 ## Testing
@@ -48,7 +48,7 @@ colcon test --packages-select rov_nav2_plugins
 colcon test-result --verbose
 ```
 
-- The algorithm tests include closed-loop runs of `Pursuit` against a simulated vehicle, both ideal and with response lag and a water current. Their thresholds sit just above measured performance, so a regression in tracking or arrival time fails them.
+- The algorithm tests cover OctoMap routes through open water, around a suspended obstacle and against a fully blocking wall. They also include closed-loop runs of `Pursuit` against a simulated vehicle, both ideal and with response lag and a water current.
 - The plugin tests drive each plugin through its Nav2 interface. `test_plugin_loading` loads each plugin by name through pluginlib, as the Nav2 servers do, which catches mistakes in `plugins.xml` and the export macros.
 - There is no end-to-end test through the real Nav2 servers in the repository yet.
 

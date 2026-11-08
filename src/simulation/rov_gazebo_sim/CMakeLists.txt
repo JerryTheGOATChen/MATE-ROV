@@ -21,6 +21,13 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  PROGRAMS
+    scripts/foxglove_scene.py
+    scripts/foxglove_teleop_adapter.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
 

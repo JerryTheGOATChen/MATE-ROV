@@ -1,4 +1,5 @@
 __pycache__/
+.DS_Store
 code_server_config/*/extensions
 code_server_config/*/start_code_server.sh
 *.pyc

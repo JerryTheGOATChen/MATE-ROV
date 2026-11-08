@@ -23,6 +23,50 @@ launch:
       name: use_sim_time
       value: $(var use_sim_time)
 
+  # Build a probabilistic 3D occupancy map directly from the sonar point cloud. The planner uses
+  # /octomap_binary; occupied_cells_vis_array and octomap_point_cloud_centers are for visualization.
+  - node:
+      pkg: "octomap_server"
+      exec: "octomap_server_node"
+      name: "octomap_server"
+      output: "screen"
+      param:
+        - name: frame_id
+          value: "map"
+        - name: base_frame_id
+          value: "base_link"
+        - name: resolution
+          value: 0.1
+        # Keep the tree pruned and avoid generating map products unused by the 3D planner. The
+        # occupied marker stream remains available for Foxglove.
+        - name: compress_map
+          value: true
+        - name: publish_free_space
+          value: false
+        - name: incremental_2D_projection
+          value: false
+        - name: colored_map
+          value: false
+        - name: sensor_model.max_range
+          value: 8.0
+        - name: sensor_model.hit
+          value: 0.7
+        - name: sensor_model.miss
+          value: 0.4
+        - name: latch
+          value: true
+        - name: use_height_map
+          value: true
+        - name: filter_ground_plane
+          value: false
+        - name: occupancy_min_z
+          value: -4.0
+        - name: occupancy_max_z
+          value: 0.0
+      remap:
+        - from: "cloud_in"
+          to: "/sonar/points"
+
   - node:
       pkg: "nav2_controller"
       exec: "controller_server"

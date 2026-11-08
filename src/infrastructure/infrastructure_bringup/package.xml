@@ -40,6 +40,8 @@
 
   <!-- Messages to Visualize/Record (add your robot's sensor msgs here) -->
   <depend>vision_msgs</depend>
+  <depend>map_msgs</depend>
+  <depend>nav2_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

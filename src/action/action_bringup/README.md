@@ -12,7 +12,7 @@ Once the vehicle is up, send a goal:
 ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 2.0, y: 1.0, z: -1.0}, orientation: {w: 1.0}}}}"
 ```
 
-To watch, connect Foxglove to the bridge address that `watod up` prints, add a 3D panel with its display frame set to `map`, and turn on `/plan`, `/odom`, `/sonar/points`, `/global_costmap/costmap` and `/global_costmap/voxel_grid` (the costmap's 3D voxels).
+To watch, connect Foxglove to the bridge address that `watod up` prints, add a 3D panel with its display frame set to `map`, and turn on `/plan`, `/odom`, `/sonar/points` and `/occupied_cells_vis_array` (the OctoMap's occupied cells).
 
 | Launch argument | Default | Description |
 |-----------------|---------|-------------|
@@ -31,7 +31,7 @@ To navigate the real ROV, the vehicle side (interfacing and localization) must p
 | `odom -> base_link` | TF | Vehicle odometry, e.g. from the DVL, IMU and depth sensor |
 | `map -> odom` | TF | Localization. Publish an identity transform if odometry is the only position source |
 | `/odom` (publish) | `nav_msgs/Odometry` | Read by Nav2's controller server |
-| `/sonar/points` (publish) | `sensor_msgs/PointCloud2` | Sonar returns at their real 3D positions, in the sonar's own frame: at the sonar, x along its center beam, with a transform to `map` (see [DEVELOPING.md](DEVELOPING.md#costmaps)). The costmap clears the sonar's field of view from that frame, set in `config/nav2.yaml`. Fills the global costmap that the planner routes around. Without it, the costmap stays empty and paths are nearly straight |
+| `/sonar/points` (publish) | `sensor_msgs/PointCloud2` | Sonar returns at their real 3D positions, in the sonar's own frame: at the sonar, x along its center beam, with a transform to `map` (see [DEVELOPING.md](DEVELOPING.md#octomap)). `octomap_server` ray-traces these measurements into the 3D map that the planner searches. |
 
 Frames follow REP 103 and REP 105. Because z is up, a depth of 2 m is z = -2.
 
