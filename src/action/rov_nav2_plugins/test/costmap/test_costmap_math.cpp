@@ -233,6 +233,7 @@ TEST_CASE("inflate matches a brute-force search for the nearest obstacle", "[cos
   geometry.size = {13, 9, 11};
   const InflationConfig config = vehicle();
   const double z_scale = config.inscribed_radius / config.half_height;
+  const double top = geometry.origin.z() + geometry.size.z() * geometry.resolution;
 
   std::mt19937 random(42);
   for (int trial = 0; trial < 10; ++trial) {
@@ -260,7 +261,11 @@ TEST_CASE("inflate matches a brute-force search for the nearest obstacle", "[cos
             offset.z() *= z_scale;
             nearest = std::min(nearest, offset.norm());
           }
-          REQUIRE(volume.cost(voxel) == inflated_cost(nearest, config));
+          std::uint8_t expected = inflated_cost(nearest, config);
+          if (geometry.center(voxel).z() > top - config.half_height) {
+            expected = std::max(expected, kInscribedCost);
+          }
+          REQUIRE(volume.cost(voxel) == expected);
         }
       }
     }
@@ -270,6 +275,7 @@ TEST_CASE("inflate matches a brute-force search for the nearest obstacle", "[cos
 TEST_CASE("inflate keeps the vehicle's half-height off the floor", "[costmap_math]")
 {
   VoxelGrid3D grid(pool_geometry());
+  mark(grid, {0.55, 0.55, 0.95}); // obstacle in top layer
   // The floor at the bottom of the grid, and a post through every depth at x = 1.05
   for (int i = 0; i < 20; ++i) {
     for (int j = 0; j < 10; ++j) {
@@ -293,6 +299,33 @@ TEST_CASE("inflate keeps the vehicle's half-height off the floor", "[costmap_mat
   REQUIRE(volume.cost({10, 5, 5}) == kLethalCost);
   REQUIRE(volume.cost({12, 5, 5}) == kInscribedCost);  // 0.2 m away
   REQUIRE(volume.cost({14, 5, 5}) < kInscribedCost);  // 0.4 m away
+
+  // Obstacle in the top layer is inflated down to the vehicle's half-height above the floor
+  REQUIRE(volume.cost({15, 5, 9}) == kInscribedCost);
+  REQUIRE(volume.cost({15, 5, 7}) < kInscribedCost);
+  REQUIRE(volume.cost({5, 5, 9}) == kLethalCost);
+}
+
+TEST_CASE("inflate blocks the unseen water above and below a wall until it is seen", "[costmap_math]")
+{
+  VoxelGrid3D grid(pool_geometry());
+  for (int k = 3; k <= 6; ++k) {
+    mark(grid, {1.55, 0.55, 0.05 + 0.1 * k});  // a wall 0.4 m tall
+  }
+  for (int k = 3; k <= 5; ++k) {
+    mark(grid, {0.55, 0.55, 0.05 + 0.1 * k});  // 0.3 m tall, too short to be a wall
+  }
+  // A ray from the side, showing the water at k = 8 above the wall is clear
+  grid.insert({0.05, 0.55, 0.85}, {{1.95, 0.55, 0.85}}, 0.0, 8.0);
+
+  const CostVolume volume = inflate(grid, vehicle());
+
+  REQUIRE(volume.cost({15, 5, 7}) == kLethalCost);  // unseen, just above the wall
+  REQUIRE(volume.cost({15, 5, 0}) == kLethalCost);  // unseen, all the way down
+  REQUIRE_FALSE(volume.known({15, 5, 7}));
+  REQUIRE(volume.cost({15, 5, 8}) < kLethalCost);  // seen clear, so the extension stops here
+  REQUIRE(volume.cost({15, 5, 9}) < kLethalCost);  // beyond the water seen clear
+  REQUIRE(volume.cost({5, 5, 1}) < kLethalCost);  // below the short run
 }
 
 TEST_CASE("inflate reports which voxels the sensor has seen, and unknown voxels are not obstacles", "[costmap_math]")

@@ -170,7 +170,10 @@ private:
  * @brief Inflate the occupied voxels of `grid` in 3D.
  *
  * Distances come from an exact Euclidean distance transform (Felzenszwalb and Huttenlocher), one pass
- * per axis, so the cost is linear in the number of voxels. Unknown voxels are not obstacles.
+ * per axis, so the cost is linear in the number of voxels. Unknown voxels are not obstacles, except those
+ * directly above and below a wall, which count as the wall until the sensor sees them: up close it sees
+ * only the middle of a wall. The vehicle's half-height below the top of the grid, the water's surface, is
+ * never free.
  *
  * @throws std::invalid_argument if a radius, the half-height or the scaling factor is not positive, or the
  *   inflation radius is less than the inscribed radius

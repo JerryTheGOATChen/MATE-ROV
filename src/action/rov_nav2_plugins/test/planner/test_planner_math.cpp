@@ -83,7 +83,16 @@ struct Tank
 {
   explicit Tank(const Eigen::Vector3d & size)
   : grid(make_geometry(size))
-  {}
+  {
+    // A ray up each column, to a return above the grid, shows the whole column clear
+    Eigen::Vector3i voxel{0, 0, 0};
+    for (voxel.y() = 0; voxel.y() < geometry().size.y(); ++voxel.y()) {
+      for (voxel.x() = 0; voxel.x() < geometry().size.x(); ++voxel.x()) {
+        const Eigen::Vector3d bottom = geometry().center(voxel);
+        grid.insert(bottom, {bottom + Eigen::Vector3d(0.0, 0.0, 2.0 * size.z())}, 0.0, 4.0 * size.z());
+      }
+    }
+  }
 
   static GridGeometry make_geometry(const Eigen::Vector3d & size)
   {

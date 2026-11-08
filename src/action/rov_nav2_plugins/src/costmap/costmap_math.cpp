@@ -30,6 +30,7 @@ namespace
 {
 
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
+constexpr double kMinWallHeight = 0.4;  // m, of a vertical run of occupied voxels, taller than the floor's returns
 
 /**
  * @brief One-dimensional squared distance transform, for squared distances weighted by `weight_sq`.
@@ -104,6 +105,53 @@ void distance_transform_axis(const GridGeometry & geometry, std::vector<double> 
       distance_transform_1d(in, out, weight_sq, sites, bounds);
       for (int q = 0; q < n; ++q) {
         values[first + q * stride] = out[q];
+      }
+    }
+  }
+}
+
+/**
+ * @brief Mark as occupied, in `distance_sq`, the unknown voxels directly above and below each wall in `grid`.
+ *
+ * The sensor sees only a band of depths, so up close it sees the middle of a wall and not where the wall ends.
+ * A wall is a vertical run of occupied voxels at least kMinWallHeight tall, so the floor and horizontal bars are
+ * not extended. Extension stops at the first voxel the sensor has seen, so a real gap opens once it is seen.
+ */
+void extend_walls(const VoxelGrid3D & grid, std::vector<double> & distance_sq)
+{
+  const GridGeometry & geometry = grid.geometry();
+  const int min_run = static_cast<int>(std::ceil(kMinWallHeight / geometry.resolution - 1e-9));
+  const int size_z = geometry.size.z();
+
+  Eigen::Vector3i voxel;
+  const auto occupied = [&grid, &voxel](int z) {
+    voxel.z() = z;
+    return grid.occupied(voxel);
+  };
+  const auto extend = [&](int from, int step) {
+    for (int z = from; z >= 0 && z < size_z; z += step) {
+      voxel.z() = z;
+      if (grid.occupancy(voxel) != Occupancy::kUnknown) {
+        return;
+      }
+      distance_sq[geometry.index(voxel)] = 0.0;
+    }
+  };
+
+  for (voxel.y() = 0; voxel.y() < geometry.size.y(); ++voxel.y()) {
+    for (voxel.x() = 0; voxel.x() < geometry.size.x(); ++voxel.x()) {
+      for (int z = 0; z < size_z; ++z) {
+        if (!occupied(z)) {
+          continue;
+        }
+        const int bottom = z;
+        while (z + 1 < size_z && occupied(z + 1)) {
+          ++z;
+        }
+        if (z - bottom + 1 >= min_run) {
+          extend(bottom - 1, -1);
+          extend(z + 1, 1);
+        }
       }
     }
   }
@@ -355,6 +403,7 @@ CostVolume inflate(const VoxelGrid3D & grid, const InflationConfig & config)
       }
     }
   }
+  extend_walls(grid, distance_sq);
   const double z_scale = config.inscribed_radius / config.half_height;
   distance_transform_axis(geometry, distance_sq, 0, 1.0);
   distance_transform_axis(geometry, distance_sq, 1, 1.0);
@@ -363,6 +412,20 @@ CostVolume inflate(const VoxelGrid3D & grid, const InflationConfig & config)
   std::vector<std::uint8_t> costs(geometry.count());
   for (std::size_t n = 0; n < costs.size(); ++n) {
     costs[n] = inflated_cost(std::sqrt(distance_sq[n]) * geometry.resolution, config);
+  }
+
+  // Inflate top of obstacles so the vehicle does not go above water surface
+  const double top = geometry.origin.z() + geometry.size.z() * geometry.resolution;
+  for (voxel.z() = 0; voxel.z() < geometry.size.z(); ++voxel.z()) {
+    if (geometry.center(voxel).z() <= top - config.half_height) {
+      continue;
+    }
+    for (voxel.y() = 0; voxel.y() < geometry.size.y(); ++voxel.y()) {
+      for (voxel.x() = 0; voxel.x() < geometry.size.x(); ++voxel.x()) {
+        std::uint8_t &cost = costs[geometry.index(voxel)];
+        cost = std::max(cost, kInscribedCost);
+      }
+    }
   }
   return CostVolume(geometry, std::move(costs), std::move(known));
 }

@@ -276,12 +276,15 @@ bool VoxelLayer3D::insert_cloud(const sensor_msgs::msg::PointCloud2 & cloud)
 void VoxelLayer3D::publish_voxel_costs(const CostVolume & volume)
 {
   const GridGeometry & geometry = volume.geometry();
+  const double top = geometry.origin.z() + geometry.size.z() * geometry.resolution;
   std::vector<Eigen::Vector3i> voxels;
   Eigen::Vector3i voxel;
   for (voxel.z() = 0; voxel.z() < geometry.size.z(); ++voxel.z()) {
     for (voxel.y() = 0; voxel.y() < geometry.size.y(); ++voxel.y()) {
       for (voxel.x() = 0; voxel.x() < geometry.size.x(); ++voxel.x()) {
-        if (volume.cost(voxel) != kFreeCost) {
+        const std::uint8_t cost = volume.cost(voxel);
+        const bool surface_band = cost == kInscribedCost && geometry.center(voxel).z() > top - robot_half_height_;
+        if (cost != kFreeCost && !surface_band) {
           voxels.push_back(voxel);
         }
       }

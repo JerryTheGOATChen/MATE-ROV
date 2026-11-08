@@ -170,7 +170,7 @@ TEST_CASE_METHOD(
 
   const auto volume = setup.layer->cost_volume();
   // The floor is lethal in 3D, and the water well above it is free
-  REQUIRE(volume->cost({5, 5, 9}) == nav2_costmap_2d::FREE_SPACE);
+  REQUIRE(volume->cost({5, 5, 7}) == nav2_costmap_2d::FREE_SPACE);
   // The post is lethal at every depth, and inflated beside it
   REQUIRE(volume->cost({20, 15, 5}) == nav2_costmap_2d::LETHAL_OBSTACLE);
   REQUIRE(volume->cost({22, 15, 5}) == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE);
