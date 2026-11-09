@@ -2,7 +2,7 @@
 
 > 🎃 **This is the `hackathon/halloween` branch.** Start with [HACKATHON.md](HACKATHON.md).
 
-## 👻 Ghost brain demo (team/alex-team)
+## Ghost brain demo (team/alex-team)
 
 My ghost plays full 2-minute games using only its own sensors. The code is in [src/action/ghost_brain](src/action/ghost_brain).
 
