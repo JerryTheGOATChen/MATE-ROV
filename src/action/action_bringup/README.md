@@ -31,7 +31,7 @@ To navigate the real ROV, the vehicle side (interfacing and localization) must p
 | `odom -> base_link` | TF | Vehicle odometry, e.g. from the DVL, IMU and depth sensor |
 | `map -> odom` | TF | Localization. Publish an identity transform if odometry is the only position source |
 | `/odom` (publish) | `nav_msgs/Odometry` | Read by Nav2's controller server |
-| `/sonar/points` (publish) | `sensor_msgs/PointCloud2` | Sonar returns at their real 3D positions, in the sonar's own frame: at the sonar, x along its center beam, with a transform to `map` (see [DEVELOPING.md](DEVELOPING.md#octomap)). `octomap_server` ray-traces these measurements into the 3D map that the planner searches. |
+| `/sonar/points` (publish) | `sensor_msgs/PointCloud2` | Sonar returns at their real 3D positions, in the sonar's own frame: at the sonar, x along its center beam, with a transform to `map` (see [DEVELOPING.md](DEVELOPING.md#octomap)). `OctomapPlanner3D` ray-traces these measurements directly into its persistent 3D map. |
 
 Frames follow REP 103 and REP 105. Because z is up, a depth of 2 m is z = -2.
 

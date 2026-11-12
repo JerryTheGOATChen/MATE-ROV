@@ -11,16 +11,24 @@ Nav2 components that are not launched: map server and AMCL (the vehicle localize
 
 ## OctoMap
 
-`octomap_server` ray-traces `/sonar/points` into a probabilistic 3D occupancy map in the `map` frame. It publishes `/octomap_binary` for `OctomapPlanner3D` and `/occupied_cells_vis_array` for Foxglove. Free space comes from the beam between the sonar and each return; occupied space comes from the return itself.
+`OctomapPlanner3D` owns one persistent `octomap::OcTree` and updates it directly from
+`/sonar/points`. A TF message filter waits until each cloud can be transformed from the sonar frame
+into `map`. OctoMap's batch point-cloud insertion ray-traces free space from the transformed sensor
+origin to each return, marks in-range endpoints occupied, treats returns beyond maximum range as
+free-only rays, applies the configured hit/miss probability model, and prunes the tree.
 
-The map is compressed as an octree and free-space markers are not published. The planner decodes
-the complete binary map at most twice per second (the planner itself runs at 1 Hz), then builds a
-temporary compact 0.25 m collision lattice for A*. This avoids restoring a persistent dense voxel
-map while making neighbor and path-smoothing collision checks constant-time.
+The plugin no longer launches `octomap_server` or publishes and decodes `/octomap_binary`. For A*,
+it derives a compact 0.25 m collision lattice from the authoritative tree. The lattice is cached by
+map revision, so multiple planning requests against the same sonar map reuse it; a sonar update
+invalidates it. Planning takes a shared map lock and point-cloud insertion takes an exclusive lock.
+
+`/occupied_cells_vis_array` remains available for Foxglove. Marker generation is limited to 1 Hz
+and skipped when there are no subscribers. Set `visualization.enabled: false` in `config/nav2.yaml`
+on a compute-constrained vehicle that does not need live occupied-cell visualization.
 
 `OctomapPlanner3D` performs A* in x, y and z, so a route can pass beside, above or below an obstacle. It treats the ROV as a 0.45 m sphere, which includes clearance around its roughly 0.35 m half-width, and validates simplified path segments against the map. Heights use REP 103: z is up, so underwater positions are negative.
 
-The current simulation uses `unknown_is_occupied: false`, allowing a route through water the sonar has not observed. Set it to true for conservative operation, but initial navigation will then require enough sensor coverage to connect the start and goal through known-free cells. The map resolution, sensor range and probability model live in `launch/nav2.launch.yaml`; planning bounds and collision settings live in `config/nav2.yaml`.
+The current simulation uses `unknown_is_occupied: false`, allowing a route through water the sonar has not observed. Set it to true for conservative operation, but initial navigation will then require enough sensor coverage to connect the start and goal through known-free cells. The map resolution, sensor range, probability model, planning bounds and collision settings all live in `config/nav2.yaml`.
 
 Nav2 still constructs empty local and global 2D costmaps because its planner and controller servers require `Costmap2DROS` objects for frame and lifecycle plumbing. They contain no obstacle source and are not used by the OctoMap planner.
 

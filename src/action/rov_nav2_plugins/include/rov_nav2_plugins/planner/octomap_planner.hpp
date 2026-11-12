@@ -5,7 +5,10 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <limits>
+#include <mutex>
 #include <vector>
 
 #include <Eigen/Core>
@@ -38,14 +41,22 @@ public:
 
   std::vector<Eigen::Vector3d> plan(
     const octomap::OcTree & tree,
+    std::uint64_t map_revision,
     const Eigen::Vector3d & start,
     const Eigen::Vector3d & goal,
-    const std::function<bool()> & cancel_checker = {}) const;
+    const std::function<bool()> & cancel_checker = {});
 
   bool isStateFree(const octomap::OcTree & tree, const Eigen::Vector3d & point) const;
 
+  /** @brief Number of collision-lattice rebuilds, exposed for diagnostics and tests. */
+  std::size_t collisionCacheBuildCount() const;
+
 private:
   OctomapPlannerConfig config_;
+  mutable std::mutex cache_mutex_;
+  std::uint64_t cached_map_revision_{std::numeric_limits<std::uint64_t>::max()};
+  std::vector<std::uint8_t> blocked_cache_;
+  std::size_t collision_cache_build_count_{0};
 };
 
 }  // namespace rov_nav2_plugins

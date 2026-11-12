@@ -23,7 +23,10 @@ planner_server:
     planner_plugins: ["OctomapPlanner3D"]
     OctomapPlanner3D:
       plugin: "rov_nav2_plugins::OctomapPlanner3D"
-      octomap_topic: "/octomap_binary"
+      pointcloud_topic: "/sonar/points"
+      map_frame: "map"
+      map_resolution: 0.1
+      sensor_model.max_range: 8.0
 
 controller_server:
   ros__parameters:
@@ -47,4 +50,4 @@ The controller commands body-frame velocities in `cmd_vel`: x forward, y left, z
 ## Assumptions
 
 - The vehicle is holonomic in the horizontal plane (vectored thrusters, like a BlueROV2 Heavy) and holds itself level in roll and pitch.
-- Obstacles come from `/octomap_binary`, which is fully 3D. `action_bringup` fills it from the sonar point cloud with `octomap_server`.
+- `OctomapPlanner3D` owns a persistent 3D `OcTree` and fills it directly from `/sonar/points` after transforming each cloud into `map`.

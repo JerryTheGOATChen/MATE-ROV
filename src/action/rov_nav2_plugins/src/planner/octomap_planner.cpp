@@ -113,10 +113,14 @@ bool OctomapPlanner::isStateFree(
 
 std::vector<Eigen::Vector3d> OctomapPlanner::plan(
   const octomap::OcTree & tree,
+  std::uint64_t map_revision,
   const Eigen::Vector3d & start,
   const Eigen::Vector3d & goal,
-  const std::function<bool()> & cancel_checker) const
+  const std::function<bool()> & cancel_checker)
 {
+  // Nav2 may issue concurrent planning requests. Serializing this compact workspace keeps the
+  // revision-keyed collision cache coherent without placing any synchronization inside OcTree.
+  std::lock_guard<std::mutex> cache_lock(cache_mutex_);
   if (!isStateFree(tree, start) || !isStateFree(tree, goal)) {
     return {};
   }
@@ -142,8 +146,7 @@ std::vector<Eigen::Vector3d> OctomapPlanner::plan(
 
   // The search volume is small at planning resolution (about 86k cells for the default pool).
   // Compact arrays are substantially faster and smaller than three unordered containers holding
-  // GridIndex keys. The OctoMap remains the authoritative, sparse obstacle representation; this
-  // lattice is only short-lived A* workspace.
+  // GridIndex keys. The OctoMap remains the authoritative, sparse obstacle representation.
   const GridIndex dimensions{
     static_cast<int>(std::floor(
       (config_.max_bounds.x() - config_.min_bounds.x()) / config_.planning_resolution)) + 1,
@@ -186,74 +189,81 @@ std::vector<Eigen::Vector3d> OctomapPlanner::plan(
     return {};
   }
 
-  // Inflate occupied OctoMap leaves once into one byte per planning cell. This is a compact
-  // collision cache, not a second persistent voxel map. Half a cell diagonal conservatively
-  // protects continuous segments that pass between lattice samples.
-  std::vector<std::uint8_t> blocked(cell_count, 0U);
-  const double edge_margin = std::sqrt(3.0) * config_.planning_resolution * 0.5;
-  for (int z = 0; z < dimensions.z; ++z) {
-    for (int y = 0; y < dimensions.y; ++y) {
-      for (int x = 0; x < dimensions.x; ++x) {
-        const GridIndex index{x, y, z};
-        const Eigen::Vector3d point = to_point(index);
-        for (int axis = 0; axis < 3; ++axis) {
-          if (point[axis] - config_.collision_radius < config_.min_bounds[axis] ||
-            point[axis] + config_.collision_radius > config_.max_bounds[axis])
-          {
-            blocked[flatten(index)] = 1U;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  for (auto leaf = tree.begin_leafs(), end = tree.end_leafs(); leaf != end; ++leaf) {
-    if (!tree.isNodeOccupied(*leaf)) {
-      continue;
-    }
-    const Eigen::Vector3d center(leaf.getX(), leaf.getY(), leaf.getZ());
-    const double leaf_half_size = leaf.getSize() * 0.5;
-    const double inflation = config_.collision_radius + edge_margin + leaf_half_size;
-    GridIndex min_index = to_index(center - Eigen::Vector3d::Constant(inflation));
-    GridIndex max_index = to_index(center + Eigen::Vector3d::Constant(inflation));
-    min_index.x = std::max(0, min_index.x);
-    min_index.y = std::max(0, min_index.y);
-    min_index.z = std::max(0, min_index.z);
-    max_index.x = std::min(dimensions.x - 1, max_index.x);
-    max_index.y = std::min(dimensions.y - 1, max_index.y);
-    max_index.z = std::min(dimensions.z - 1, max_index.z);
-    for (int x = min_index.x; x <= max_index.x; ++x) {
-      for (int y = min_index.y; y <= max_index.y; ++y) {
-        for (int z = min_index.z; z <= max_index.z; ++z) {
-          const GridIndex index{x, y, z};
-          const Eigen::Vector3d point = to_point(index);
-          // Distance from the planning point to the occupied leaf's axis-aligned cube.
-          const Eigen::Vector3d distance =
-            (point - center).cwiseAbs() - Eigen::Vector3d::Constant(leaf_half_size);
-          if (distance.cwiseMax(0.0).norm() <= config_.collision_radius + edge_margin) {
-            blocked[flatten(index)] = 1U;
-          }
-        }
-      }
-    }
-  }
-
-  // Unknown-space checks are also cached once when that conservative mode is requested. The
-  // normal underwater-survey mode treats unseen water as traversable and skips this entire pass.
-  if (config_.unknown_is_occupied) {
+  // Inflate occupied leaves only when the authoritative OctoMap changes. This compact collision
+  // lattice is a derived planning cache, not another occupancy map. Half a cell diagonal
+  // conservatively protects continuous segments that pass between lattice samples.
+  if (cached_map_revision_ != map_revision || blocked_cache_.size() != cell_count) {
+    std::vector<std::uint8_t> rebuilt(cell_count, 0U);
+    const double edge_margin = std::sqrt(3.0) * config_.planning_resolution * 0.5;
     for (int z = 0; z < dimensions.z; ++z) {
       for (int y = 0; y < dimensions.y; ++y) {
         for (int x = 0; x < dimensions.x; ++x) {
           const GridIndex index{x, y, z};
-          const std::uint32_t cell = flatten(index);
-          if (blocked[cell] == 0U && !isStateFree(tree, to_point(index))) {
-            blocked[cell] = 1U;
+          const Eigen::Vector3d point = to_point(index);
+          for (int axis = 0; axis < 3; ++axis) {
+            if (point[axis] - config_.collision_radius < config_.min_bounds[axis] ||
+              point[axis] + config_.collision_radius > config_.max_bounds[axis])
+            {
+              rebuilt[flatten(index)] = 1U;
+              break;
+            }
           }
         }
       }
     }
+
+    for (auto leaf = tree.begin_leafs(), end = tree.end_leafs(); leaf != end; ++leaf) {
+      if (!tree.isNodeOccupied(*leaf)) {
+        continue;
+      }
+      const Eigen::Vector3d center(leaf.getX(), leaf.getY(), leaf.getZ());
+      const double leaf_half_size = leaf.getSize() * 0.5;
+      const double inflation = config_.collision_radius + edge_margin + leaf_half_size;
+      GridIndex min_index = to_index(center - Eigen::Vector3d::Constant(inflation));
+      GridIndex max_index = to_index(center + Eigen::Vector3d::Constant(inflation));
+      min_index.x = std::max(0, min_index.x);
+      min_index.y = std::max(0, min_index.y);
+      min_index.z = std::max(0, min_index.z);
+      max_index.x = std::min(dimensions.x - 1, max_index.x);
+      max_index.y = std::min(dimensions.y - 1, max_index.y);
+      max_index.z = std::min(dimensions.z - 1, max_index.z);
+      for (int x = min_index.x; x <= max_index.x; ++x) {
+        for (int y = min_index.y; y <= max_index.y; ++y) {
+          for (int z = min_index.z; z <= max_index.z; ++z) {
+            const GridIndex index{x, y, z};
+            const Eigen::Vector3d point = to_point(index);
+            // Distance from the planning point to the occupied leaf's axis-aligned cube.
+            const Eigen::Vector3d distance =
+              (point - center).cwiseAbs() - Eigen::Vector3d::Constant(leaf_half_size);
+            if (distance.cwiseMax(0.0).norm() <= config_.collision_radius + edge_margin) {
+              rebuilt[flatten(index)] = 1U;
+            }
+          }
+        }
+      }
+    }
+
+    // Unknown-space checks are also cached once when conservative mode is requested. The normal
+    // underwater-survey mode treats unseen water as traversable and skips this entire pass.
+    if (config_.unknown_is_occupied) {
+      for (int z = 0; z < dimensions.z; ++z) {
+        for (int y = 0; y < dimensions.y; ++y) {
+          for (int x = 0; x < dimensions.x; ++x) {
+            const GridIndex index{x, y, z};
+            const std::uint32_t cell = flatten(index);
+            if (rebuilt[cell] == 0U && !isStateFree(tree, to_point(index))) {
+              rebuilt[cell] = 1U;
+            }
+          }
+        }
+      }
+    }
+
+    blocked_cache_ = std::move(rebuilt);
+    cached_map_revision_ = map_revision;
+    ++collision_cache_build_count_;
   }
+  const auto & blocked = blocked_cache_;
 
   const std::uint32_t start_cell = flatten(start_index);
   const std::uint32_t goal_cell = flatten(goal_index);
@@ -379,6 +389,12 @@ std::vector<Eigen::Vector3d> OctomapPlanner::plan(
     anchor = next;
   }
   return simplified;
+}
+
+std::size_t OctomapPlanner::collisionCacheBuildCount() const
+{
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return collision_cache_build_count_;
 }
 
 }  // namespace rov_nav2_plugins

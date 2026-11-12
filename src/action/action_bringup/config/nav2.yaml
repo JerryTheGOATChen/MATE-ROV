@@ -27,11 +27,27 @@ planner_server:
     # half-width plus 0.10 m of clearance.
     OctomapPlanner3D:
       plugin: "rov_nav2_plugins::OctomapPlanner3D"
-      octomap_topic: "/octomap_binary"
-      # The server publishes a complete binary tree for every 5 Hz sonar frame. The planner runs
-      # at 1 Hz, so decoding at 2 Hz keeps obstacle latency low without repeatedly rebuilding a
-      # tree that cannot be used by an intervening plan.
-      map_update_interval: 0.5
+      # The plugin owns the authoritative OcTree and updates it directly from sonar returns. These
+      # values preserve the former octomap_server mapping model without serializing whole trees.
+      pointcloud_topic: "/sonar/points"
+      map_frame: "map"
+      map_resolution: 0.1
+      tf_queue_size: 5
+      tf_filter_tolerance: 5.0
+      compress_map: true
+      sensor_model.max_range: 8.0
+      sensor_model.hit: 0.7
+      sensor_model.miss: 0.4
+      sensor_model.min: 0.12
+      sensor_model.max: 0.97
+      sensor_model.occupancy: 0.5
+      # Marker generation traverses the tree only when a subscriber exists and at most once per
+      # second. Disable it on the vehicle when occupied-cell visualization is not needed.
+      visualization.enabled: true
+      visualization.publish_interval: 1.0
+      visualization.topic: "/occupied_cells_vis_array"
+      visualization.min_z: -4.0
+      visualization.max_z: 0.0
       planning_resolution: 0.25
       collision_radius: 0.45
       min_bounds: [-11.0, -7.0, -4.0]
@@ -90,7 +106,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
 
-# Nav2 also requires a global Costmap2DROS even though OctomapPlanner3D reads /octomap_binary
+# Nav2 also requires a global Costmap2DROS even though OctomapPlanner3D reads its own OcTree
 # directly. A coarse, non-publishing placeholder preserves the pool bounds and frame plumbing
 # without maintaining the original 30,800-cell 2D projection.
 global_costmap:

@@ -1,6 +1,6 @@
 # ROV Nav2 Plugins
 
-Nav2 loads these plugins through pluginlib: `plugins.xml` exports each class against its Nav2 base class, and the Nav2 servers create the ones named in their YAML configuration. `OctomapPlanner3D` subscribes to the binary OctoMap; the other plugins use Nav2's server interfaces and costmap frames.
+Nav2 loads these plugins through pluginlib: `plugins.xml` exports each class against its Nav2 base class, and the Nav2 servers create the ones named in their YAML configuration. `OctomapPlanner3D` builds its persistent OctoMap directly from the sonar point cloud; the other plugins use Nav2's server interfaces and costmap frames.
 
 ## Plugin Types
 
@@ -21,7 +21,7 @@ The base classes are defined in [`nav2_core`](https://github.com/ros-navigation/
 |---|---|---|
 | `configure()` / `initialize()` | The server configures. The planner and controller have `configure()`; the checkers have `initialize()`. | Read parameters. The planner subscribes to the OctoMap, and the controller takes its frames from the costmap. |
 | `activate()` / `deactivate()` | The server activates or deactivates. | No extra work. |
-| `cleanup()` | The server cleans up. | The controller drops its path, and `OctomapPlanner3D` releases its subscription and map. |
+| `cleanup()` | The server cleans up. | The controller drops its path, and `OctomapPlanner3D` releases its TF-filtered sonar subscription, map and collision cache. |
 
 ### Navigation Hooks
 

@@ -51,7 +51,7 @@ TEST_CASE("OctoMap planner returns a direct path through open water", "[octomap_
   const Eigen::Vector3d start(0.5, 2.5, -2.0);
   const Eigen::Vector3d goal(4.5, 2.5, -2.0);
 
-  const auto path = planner.plan(tree, start, goal);
+  const auto path = planner.plan(tree, 1U, start, goal);
 
   REQUIRE(path.size() == 2U);
   REQUIRE(path.front().isApprox(start));
@@ -66,6 +66,7 @@ TEST_CASE("OctoMap planner goes above or below a suspended obstacle", "[octomap_
 
   const auto path = planner.plan(
     tree,
+    1U,
     Eigen::Vector3d(0.5, 2.5, -2.0),
     Eigen::Vector3d(4.5, 2.5, -2.0));
 
@@ -86,8 +87,27 @@ TEST_CASE("OctoMap planner fails when a wall spans the water column", "[octomap_
 
   const auto path = planner.plan(
     tree,
+    1U,
     Eigen::Vector3d(0.5, 2.5, -2.0),
     Eigen::Vector3d(4.5, 2.5, -2.0));
 
   REQUIRE(path.empty());
+}
+
+TEST_CASE("OctoMap planner rebuilds its collision lattice only for a new map revision",
+  "[octomap_planner]")
+{
+  octomap::OcTree tree(0.1);
+  OctomapPlanner planner(config());
+  const Eigen::Vector3d start(0.5, 2.5, -2.0);
+  const Eigen::Vector3d goal(4.5, 2.5, -2.0);
+
+  REQUIRE(planner.plan(tree, 10U, start, goal).size() == 2U);
+  REQUIRE(planner.collisionCacheBuildCount() == 1U);
+  REQUIRE(planner.plan(tree, 10U, start, goal).size() == 2U);
+  REQUIRE(planner.collisionCacheBuildCount() == 1U);
+
+  add_wall(tree, -2.35, -1.65);
+  REQUIRE(planner.plan(tree, 11U, start, goal).size() >= 3U);
+  REQUIRE(planner.collisionCacheBuildCount() == 2U);
 }

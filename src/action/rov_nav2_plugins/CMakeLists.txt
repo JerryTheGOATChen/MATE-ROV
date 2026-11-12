@@ -25,18 +25,22 @@ find_package(ament_cmake REQUIRED)
 find_package(angles REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(nav2_core REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(nav2_util REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(octomap REQUIRED)
-find_package(octomap_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 # ----------------------------
 # Plugin library
@@ -46,6 +50,7 @@ add_library(${PROJECT_NAME} SHARED
   src/controller/controller_math.cpp
   src/controller/pure_pursuit_controller_3d.cpp
   src/goal_checker/goal_checker_3d.cpp
+  src/planner/octomap_mapper.cpp
   src/planner/octomap_planner.cpp
   src/planner/octomap_planner_3d.cpp
   src/progress_checker/progress_checker_3d.cpp
@@ -67,13 +72,17 @@ target_link_libraries(${PROJECT_NAME}
     nav2_costmap_2d::nav2_costmap_2d_core
     nav2_util::nav2_util_core
     ${OCTOMAP_LIBRARIES}
-    ${octomap_msgs_TARGETS}
+    message_filters::message_filters
     pluginlib::pluginlib
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     tf2_ros::tf2_ros
     ${geometry_msgs_TARGETS}
     ${nav_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    ${tf2_sensor_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
   PRIVATE
     angles::angles
     tf2::tf2
@@ -102,6 +111,7 @@ if(BUILD_TESTING)
 
   # Algorithms, independent of Nav2 and ROS communication
   add_wato_test(test_controller_math test/controller/test_controller_math.cpp LIBRARIES ${PROJECT_NAME})
+  add_wato_test(test_octomap_mapper test/planner/test_octomap_mapper.cpp LIBRARIES ${PROJECT_NAME})
   add_wato_test(test_octomap_planner test/planner/test_octomap_planner.cpp LIBRARIES ${PROJECT_NAME})
 
   # Nav2 plugin interfaces
