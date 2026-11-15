@@ -114,8 +114,17 @@ jobs:
   confirm-build-and-unittest-complete:
     name: Confirm Build and Unit Tests Completed
     needs: build-and-unittest
+    # Run even when a build fails. Otherwise this job is skipped, and GitHub
+    # treats a skipped required check as passing.
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Ending
+        env:
+          BUILD_RESULT: ${{ needs.build-and-unittest.result }}
         run: |
+          if [[ "$BUILD_RESULT" != "success" ]]; then
+            echo "::error:: Builds and unit tests did not pass (result: $BUILD_RESULT)"
+            exit 1
+          fi
           echo "::notice:: All builds and unit tests completed!"
