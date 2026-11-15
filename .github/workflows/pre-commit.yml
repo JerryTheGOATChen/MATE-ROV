@@ -9,7 +9,7 @@ on:
 jobs:
   run-pre-commit:
     name: Pre-commit Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # 26.04 ships libxml2 2.15, which cannot fetch the ROS package.xml schema over HTTP
 
     steps:
       - uses: actions/checkout@v4
