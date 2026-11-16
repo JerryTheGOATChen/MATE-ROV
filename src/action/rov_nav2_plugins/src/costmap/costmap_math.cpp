@@ -422,7 +422,7 @@ CostVolume inflate(const VoxelGrid3D & grid, const InflationConfig & config)
     }
     for (voxel.y() = 0; voxel.y() < geometry.size.y(); ++voxel.y()) {
       for (voxel.x() = 0; voxel.x() < geometry.size.x(); ++voxel.x()) {
-        std::uint8_t &cost = costs[geometry.index(voxel)];
+        std::uint8_t & cost = costs[geometry.index(voxel)];
         cost = std::max(cost, kInscribedCost);
       }
     }

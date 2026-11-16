@@ -275,7 +275,7 @@ TEST_CASE("inflate matches a brute-force search for the nearest obstacle", "[cos
 TEST_CASE("inflate keeps the vehicle's half-height off the floor", "[costmap_math]")
 {
   VoxelGrid3D grid(pool_geometry());
-  mark(grid, {0.55, 0.55, 0.95}); // obstacle in top layer
+  mark(grid, {0.55, 0.55, 0.95});  // obstacle in top layer
   // The floor at the bottom of the grid, and a post through every depth at x = 1.05
   for (int i = 0; i < 20; ++i) {
     for (int j = 0; j < 10; ++j) {
