@@ -15,19 +15,19 @@ runs:
 
     - name: Find changed files outside of src directory
       id: changed-files-outside-src
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: '!src/**'
 
     - name: Find changed files inside src/wato_test folder
       id: changed-files-wato-test
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: src/wato_test/**
 
     - name: Find changed files inside infrastructure folders
       id: changed-files-infrastructure
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: |
           src/**/*_msgs/**
@@ -35,25 +35,25 @@ runs:
 
     - name: Find changed files inside src/action folder
       id: changed-files-action
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: src/action/**
 
     - name: Get changed files inside src/interfacing folder
       id: changed-files-interfacing
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: src/interfacing/**
 
     - name: Get changed files inside src/perception folder
       id: changed-files-perception
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: src/perception/**
 
     - name: Get changed files inside src/world_modeling folder
       id: changed-files-world-modeling
-      uses: tj-actions/changed-files@v42
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
       with:
         files: src/world_modeling/**
 

@@ -44,7 +44,7 @@ docker login ghcr.io
 
 Theses base images are used in our dockerfiles to provide a starting point for all of our docker images.
 
-ALL WATONOMOUS BASE IMAGES ARE BUILT USING THE WATO_MONOREPO, and this template pulls them from `ghcr.io/watonomous/wato_monorepo/base` by default. This repo ships the same workflow, so you can publish your own base images under your repository's registry and update `BASE_IMAGE` in each `docker/<module>.Dockerfile`. It is configured [here](.github/include/base_image_config.json), and must be ran manually in GitHub CI (search for the job **Build Monorepo Base Images** under the **Actions** tab). Note, only administrators can trigger new image builds.
+Our base images are built by this repo and published at `ghcr.io/jerrythegoatchen/mate-rov/base`. Each `docker/<module>.Dockerfile` names the one it uses in `BASE_IMAGE`. It is configured [here](.github/include/base_image_config.json), and must be ran manually in GitHub CI (search for the job **Build Monorepo Base Images** under the **Actions** tab). Note, only administrators can trigger new image builds.
 
 ### How are the wato_monorepo base images created?
 
