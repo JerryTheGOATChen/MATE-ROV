@@ -17,7 +17,7 @@ permissions:
 jobs:
   setup-environment:
     name: Setup Environment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       docker_matrix: ${{ steps.docker-context.outputs.docker_matrix }}
@@ -46,7 +46,7 @@ jobs:
 
   build-and-unittest:
     name: Build/Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: setup-environment
 
     env:
@@ -117,7 +117,7 @@ jobs:
     # Run even when a build fails. Otherwise this job is skipped, and GitHub
     # treats a skipped required check as passing.
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Ending
         env:

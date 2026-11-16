@@ -101,7 +101,7 @@ if [[ -z ${REGISTRY_URL:-} ]]; then
   if [[ -z $repo_slug ]]; then
     repo_slug=$(git remote get-url origin 2>/dev/null | sed -E 's#^(https://[^/]+/|git@[^:]+:)##; s#\.git$##' || true)
   fi
-  repo_slug=${repo_slug:-watonomous/wato_monorepo_template}
+  repo_slug=${repo_slug:-jerrythegoatchen/mate-rov}
   REGISTRY_URL="ghcr.io/$(echo "$repo_slug" | tr '[:upper:]' '[:lower:]')"
 fi
 REGISTRY="${REGISTRY_URL%%/*}"

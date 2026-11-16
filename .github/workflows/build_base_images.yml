@@ -12,7 +12,7 @@ permissions:
 jobs:
   setup-environment:
     name: Setup environment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       registry: ${{ steps.docker-environment.outputs.registry }}
@@ -34,7 +34,7 @@ jobs:
 
   base-matrix-prep:
     name: Prepare Base Image Matrix JSON
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.prep.outputs.matrix }}
       auth_users: ${{ steps.prep.outputs.auth_users }}
@@ -51,7 +51,7 @@ jobs:
 
   build:
     name: Build Base Images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment, base-matrix-prep]
 
     env:
