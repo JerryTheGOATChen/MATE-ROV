@@ -46,7 +46,7 @@ emit() {
 ################################# constants ####################################
 # Derive the registry from the repo running the workflow so repos created from
 # this template push to their own ghcr.io namespace (ghcr requires lowercase).
-REGISTRY_URL="ghcr.io/$(echo "${GITHUB_REPOSITORY:-watonomous/wato_monorepo_template}" | tr '[:upper:]' '[:lower:]')"
+REGISTRY_URL="ghcr.io/$(echo "${GITHUB_REPOSITORY:-jerrythegoatchen/mate-rov}" | tr '[:upper:]' '[:lower:]')"
 REGISTRY="${REGISTRY_URL%%/*}"
 REPOSITORY="${REGISTRY_URL#*/}"
 

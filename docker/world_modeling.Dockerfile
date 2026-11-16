@@ -1,6 +1,6 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
-# Base images are published by wato_monorepo (.github/workflows/build_base_images.yml).
-# To host your own, run that workflow in this repo and point BASE_IMAGE at your registry.
+ARG BASE_IMAGE=ghcr.io/jerrythegoatchen/mate-rov/base:jazzy-ubuntu24.04
+# Base images are built by this repo's "Build Monorepo Base Images" workflow
+# (.github/workflows/build_base_images.yml), configured in .github/include/base_image_config.json.
 
 ################################ Source ################################
 # NOTE: You should add in the source stage in the following order:
