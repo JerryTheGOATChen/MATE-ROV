@@ -38,10 +38,11 @@ missions:
       - {x: 1.0, y: 2.0, z: -2.5, yaw_deg: -90}
       - {x: 3.0, y: 2.0, z: -2.5, yaw_deg: 0}
 
-  # Back to the start and up to the surface
+  # Back to the start and up to just under the surface. The planner keeps the vehicle's half-height
+  # (robot_half_height in action_bringup/config/nav2.yaml) below the surface, so z = 0 is not a goal it accepts
   - name: return_and_surface
     waypoints:
-      - {x: 0.0, y: 0.0, z: 0.0, yaw_deg: 0}
+      - {x: 0.0, y: 0.0, z: -0.3, yaw_deg: 0}
 
   # A goal above the surface cannot be reached: navigation must give up rather than hang
   - name: unreachable_goal_fails

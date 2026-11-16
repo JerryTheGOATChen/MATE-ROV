@@ -120,7 +120,9 @@ def score(mission: Mission, telemetry: Telemetry) -> MissionReport:
     ]
     if mission.expect == "succeeded":
         checks += _final_pose_checks(mission, telemetry.final_pose)
-    checks.append(_path_deviation_check(telemetry, criteria.max_path_deviation))
+    checks.append(
+        _path_deviation_check(mission, telemetry, criteria.max_path_deviation)
+    )
     checks.append(_commanded_speed_check(telemetry.max_command, criteria.max_speed))
     if mission.obstacles:
         checks.append(_clearance_check(mission.obstacles, telemetry.positions))
@@ -202,9 +204,12 @@ def _final_pose_checks(mission: Mission, pose: Pose | None) -> list[Check]:
     ]
 
 
-def _path_deviation_check(telemetry: Telemetry, limit: float) -> Check:
+def _path_deviation_check(
+    mission: Mission, telemetry: Telemetry, limit: float
+) -> Check:
     if not telemetry.planned_path:
-        return Check("path deviation", False, "no plan received")
+        # A planner can refuse a goal it cannot reach, so a mission that expects to fail may have no plan
+        return Check("path deviation", mission.expect == "failed", "no plan received")
     deviation = telemetry.path_deviation()
     return Check(
         "path deviation", deviation <= limit, f"{deviation:.3f} m (limit {limit:g} m)"
@@ -238,8 +243,8 @@ def _clearance_check(
     # How far the vehicle's center stayed outside the nearest obstacle; negative means inside
     clearance = min(
         (
-            math.hypot(x - obstacle.x, y - obstacle.y) - obstacle.radius
-            for x, y, _ in positions
+            obstacle.clearance(x, y, z)
+            for x, y, z in positions
             for obstacle in obstacles
         ),
         default=math.inf,

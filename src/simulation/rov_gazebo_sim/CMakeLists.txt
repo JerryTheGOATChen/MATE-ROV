@@ -27,7 +27,7 @@ if(BUILD_TESTING)
   # Flies the pool missions through Nav2 in Gazebo. Its own ROS domain and Gazebo partition keep it
   # from cross-talking with other tests or a running simulation.
   add_launch_test(test/test_pool_missions.py
-    TIMEOUT 400
+    TIMEOUT 600
     ENV ROS_DOMAIN_ID=97 GZ_PARTITION=rov_gazebo_sim_test
   )
 endif()

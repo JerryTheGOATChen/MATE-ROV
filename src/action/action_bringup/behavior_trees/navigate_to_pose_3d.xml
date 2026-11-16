@@ -7,7 +7,7 @@
   <BehaviorTree ID="NavigateToPose3D">
     <PipelineSequence name="ReplanThenFollow">
       <RateController hz="1.0">
-        <ComputePathToPose goal="{goal}" path="{path}" planner_id="CostmapPlanner3D" error_code_id="{compute_path_error_code}"/>
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="VoxelPlanner3D" error_code_id="{compute_path_error_code}"/>
       </RateController>
       <FollowPath path="{path}" controller_id="FollowPath" goal_checker_id="goal_checker" progress_checker_id="progress_checker" error_code_id="{follow_path_error_code}"/>
     </PipelineSequence>

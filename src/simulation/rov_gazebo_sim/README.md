@@ -40,8 +40,7 @@ ros2 run rov_mission_runner mission_runner $(ros2 pkg prefix --share rov_gazebo_
 Noise values are Gaussian standard deviations, and noise is off by default. To watch, run `ros2 launch foxglove_bridge foxglove_bridge_launch.xml` and connect Foxglove to `ws://localhost:8765`. Add a 3D panel with its display frame set to `map`, and turn on these topics:
 - `/plan`
 - `/sonar/points`
-- `/global_costmap/costmap`
-- `/global_costmap/voxel_grid` (the costmap's 3D voxels)
+- `/global_costmap/voxel_layer_3d/voxel_costs` (the 3D costs the planner routes through, colored by cost as `intensity`)
 - `/odom` (the EKF's estimate)
 - `/sim/ground_truth` (where the ROV really is)
 
@@ -71,14 +70,19 @@ Interior 20 x 12 m and 4 m deep, with the surface at z = 0 and the floor at z = 
 
 ## Missions
 
-[`missions/pool_missions.yaml`](missions/pool_missions.yaml) flies five missions, scored on the ground truth:
+[`missions/pool_missions.yaml`](missions/pool_missions.yaml) flies ten missions, scored on the ground truth:
 
 | Mission | Checks |
 |---------|--------|
 | `leave_the_surface` | Diving and moving at once, on the EKF's estimate |
 | `around_the_mooring` | The sonar sees the mooring line on the straight route, and the ROV goes around it: its center stays 0.45 m from the line's |
-| `near_the_floor` | Crossing the pool to 1 m above the floor. The sonar sees the floor ahead, and the costmap must ignore it |
+| `near_the_floor` | Crossing the pool to 1 m above the floor. The sonar sees the floor ahead, which must block only the water near it |
 | `around_the_net` | The net wall blocks the straight route and reaches the pool's side, so the ROV must find the long way around its end: the clearest view of the planner avoiding obstacles |
 | `return` | Coming back to the start, around the net again from the costmap's memory, near the surface |
+| `past_the_package` | The straight route passes over the hanging instrument package, through its line to the surface, so the ROV must go under or around |
+| `line_up_on_the_gate` | Positioning for the gate |
+| `through_the_gate` | Through the gate, between its posts and under its crossbar, scored against obstacles that span only some depths |
+| `to_the_wreck` | Crossing the pool 0.5 m above the floor |
+| `over_the_wreck` | The shipwreck sits on the straight route; the ROV goes over or around it |
 
-`colcon test --packages-select rov_gazebo_sim` flies them all with Gazebo headless, in about two minutes.
+`colcon test --packages-select rov_gazebo_sim` flies them all with Gazebo headless, in about four minutes.
