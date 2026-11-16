@@ -70,6 +70,10 @@ struct Plan3D
  * the floor can still get away from it. A diagonal step may not cut past the edge or corner of a voxel that
  * cannot be entered.
  *
+ * A start at the top of the grid, the water's surface, or up to 0.5 m above it is a vehicle floating at the
+ * surface: the search starts from the top voxel under it, and the route goes straight down into the grid first.
+ * A goal there is still outside the grid.
+ *
  * The route through voxel centers is then shortened into straight segments: a segment replaces a stretch of
  * the route when it crosses no voxel the route could not enter and costs no more than the stretch. The
  * points begin at exactly `start` and end at exactly `goal`.

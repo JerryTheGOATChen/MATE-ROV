@@ -36,6 +36,7 @@ constexpr std::size_t kNoParent = std::numeric_limits<std::size_t>::max();
 constexpr std::size_t kPollInterval = 1024;  // expansions between checks for cancellation and the time limit
 constexpr double kMaxCost = kInscribedCost - 1;  // the highest cost the vehicle can be at without touching
 constexpr double kSamplesPerVoxel = 4.0;  // along a segment, when integrating its cost
+constexpr double kSurfaceTolerance = 0.5;  // m above the top of the grid a start can read, floating at the surface
 
 /// Whether the route can step from a voxel of `from_cost` into one of `to_cost`.
 bool enterable(std::uint8_t to_cost, std::uint8_t from_cost)
@@ -201,7 +202,18 @@ Plan3D plan_through_voxels(
 {
   Plan3D plan;
   const GridGeometry & geometry = volume.geometry();
-  const auto start_voxel = geometry.voxel_at(start);
+  // A vehicle floating at the surface reads as at the top of the grid, or just above it, which no voxel holds.
+  // The search starts from the top voxel under it instead
+  Eigen::Vector3d search_start = start;
+  if (!geometry.voxel_at(start)) {
+    const double top = geometry.origin.z() + geometry.size.z() * geometry.resolution;
+    Eigen::Vector3d below = start;
+    below.z() = geometry.origin.z() + (geometry.size.z() - 0.5) * geometry.resolution;
+    if (start.z() > below.z() && start.z() <= top + kSurfaceTolerance && geometry.voxel_at(below)) {
+      search_start = below;
+    }
+  }
+  const auto start_voxel = geometry.voxel_at(search_start);
   const auto goal_voxel = geometry.voxel_at(goal);
   if (!start_voxel) {
     plan.status = PlanStatus::kStartOutside;
@@ -306,7 +318,7 @@ Plan3D plan_through_voxels(
   for (std::size_t index = goal_index; index != kNoParent; index = parent[index]) {
     points.push_back(geometry.center(voxel_of(geometry, index)));
   }
-  points.push_back(start);
+  points.push_back(search_start);
   std::reverse(points.begin(), points.end());
   points.erase(std::unique(points.begin(), points.end()), points.end());
   if (points.size() == 1) {
@@ -316,6 +328,9 @@ Plan3D plan_through_voxels(
   plan.status = PlanStatus::kSucceeded;
   plan.search_cost = cost_so_far[goal_index];
   plan.points = shorten(points, costs);
+  if (search_start != start) {
+    plan.points.insert(plan.points.begin(), start);  // straight down from the surface into the grid
+  }
   return plan;
 }
 

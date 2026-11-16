@@ -178,6 +178,14 @@ def test_each_criterion_can_fail_a_run(change, failed):
     assert failed_checks(TRANSIT, dataclasses.replace(good_run(), **change)) == [failed]
 
 
+def test_a_run_expected_to_fail_needs_no_plan():
+    unreachable = dataclasses.replace(TRANSIT, name="unreachable", expect="failed")
+    refused = dataclasses.replace(
+        good_run(), outcome="failed", planned_path=[], positions=[]
+    )
+    assert failed_checks(unreachable, refused) == []
+
+
 def test_a_canceled_run_must_end_with_a_stop_command():
     canceled = dataclasses.replace(
         good_run(), outcome="canceled", final_pose=Pose(1.0, 0.0, -0.2, 0.0)

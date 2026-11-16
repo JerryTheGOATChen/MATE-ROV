@@ -80,7 +80,7 @@ Each mission starts wherever the previous one ended.
 | outcome | Nav2 reports the expected outcome |
 | duration | The outcome arrives within `timeout_s`. The runner cancels the goal at the timeout |
 | final xy, z and yaw error | Only when expecting success: the robot's pose when the goal succeeds is within tolerance of the last waypoint |
-| path deviation | The robot stays within `max_path_deviation_m` of the path the planner published. When Nav2 replans, each position is checked against the plan it was following |
+| path deviation | The robot stays within `max_path_deviation_m` of the path the planner published. When Nav2 replans, each position is checked against the plan it was following. A run with no plan fails, unless the mission expects navigation to fail: a planner can refuse a goal it cannot reach |
 | commanded speed | No `cmd_vel` exceeds `max_speed` on any axis |
 | stop command | Only when expecting cancellation: the last `cmd_vel` after canceling is zero |
 | obstacle clearance | Only for missions with `obstacles`: the robot never enters one, measured in 3D for obstacles with `z_min` or `z_max` |

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "angles/angles.h"
@@ -382,6 +383,54 @@ TEST_CASE("plan_through_voxels gets a vehicle that is touching the floor away fr
   REQUIRE(result.status == PlanStatus::kSucceeded);
   REQUIRE(result.points.front() == start);
   REQUIRE(result.points.back() == Eigen::Vector3d(7.0, 1.5, -2.0));
+}
+
+TEST_CASE("plan_through_voxels gets a vehicle that is floating at the surface down from it", "[planner_math]")
+{
+  Tank tank({8.0, 3.0, 3.0});
+  const CostVolume volume = tank.volume();
+  const Eigen::Vector3d goal{7.0, 1.5, -2.0};
+  // The top of the grid is the surface, and the vehicle's half-height below it is never free
+  REQUIRE(volume.cost(*volume.geometry().voxel_at({1.0, 1.5, -0.05})) == kInscribedCost);
+
+  SECTION("At the surface, or a little above it")
+  {
+    const double z = GENERATE(0.0, 0.3);
+    const Eigen::Vector3d start{1.0, 1.5, z};
+
+    const Plan3D result = plan(volume, start, goal);
+
+    REQUIRE(result.status == PlanStatus::kSucceeded);
+    REQUIRE(result.points.front() == start);
+    REQUIRE(result.points.back() == goal);
+    // Straight down into the grid first
+    REQUIRE(result.points[1].head<2>() == start.head<2>());
+    REQUIRE_THAT(result.points[1].z(), WithinAbs(-0.05, kTolerance));
+  }
+
+  SECTION("Inside the band below the surface")
+  {
+    const Eigen::Vector3d start{1.0, 1.5, -0.1};
+
+    const Plan3D result = plan(volume, start, goal);
+
+    REQUIRE(result.status == PlanStatus::kSucceeded);
+    REQUIRE(result.points.front() == start);
+    REQUIRE(result.points.back() == goal);
+  }
+
+  SECTION("Too far above the surface to be floating on it, or beside the grid")
+  {
+    REQUIRE(plan(volume, {1.0, 1.5, 0.6}, goal).status == PlanStatus::kStartOutside);
+    REQUIRE(plan(volume, {-1.0, 1.5, 0.0}, goal).status == PlanStatus::kStartOutside);
+  }
+
+  SECTION("A goal at the surface is still outside the grid, and one in the band is too close to it")
+  {
+    const Eigen::Vector3d start{1.0, 1.5, -1.5};
+    REQUIRE(plan(volume, start, {7.0, 1.5, 0.0}).status == PlanStatus::kGoalOutside);
+    REQUIRE(plan(volume, start, {7.0, 1.5, -0.1}).status == PlanStatus::kGoalOccupied);
+  }
 }
 
 TEST_CASE("plan_through_voxels reports why it cannot plan", "[planner_math]")
