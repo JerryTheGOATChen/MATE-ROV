@@ -12,6 +12,9 @@
   <!-- To enable Shared Memory IPC -->
   <depend>rmw_zenoh_cpp</depend>
 
+  <exec_depend>altimeter_driver</exec_depend>
+  <exec_depend>pressure_driver</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
   <exec_depend>ros2launch</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
 
