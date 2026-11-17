@@ -1,2 +1,55 @@
 ---
 # Unified interfacing configuration. Add one block per node launched in interfacing.launch.yaml.
+
+# Front D435i: depth for obstacle avoidance.
+/sensors/camera_front:
+  ros__parameters:
+    camera_name: camera_front
+    # Serial number printed on the camera, with a leading underscore so it stays a string.
+    serial_no: "_FRONT_CAMERA_SERIAL"
+    enable_color: false
+    enable_depth: true
+    depth_module.depth_profile: "848x480x15"
+    pointcloud.enable: true
+    decimation_filter.enable: true
+    spatial_filter.enable: true
+    temporal_filter.enable: true
+    publish_tf: true
+
+# Down D435i: stereo infrared images and the camera's own IMU for visual odometry.
+/sensors/camera_down:
+  ros__parameters:
+    camera_name: camera_down
+    serial_no: "_DOWN_CAMERA_SERIAL"
+    enable_color: false
+    enable_depth: false
+    enable_infra1: true
+    enable_infra2: true
+    depth_module.infra_profile: "848x480x30"
+    # The projector's dot pattern would be tracked as features that move with the camera.
+    depth_module.emitter_enabled: 0
+    enable_gyro: true
+    enable_accel: true
+    # Merge gyro and accel into one imu topic, interpolating accel to the gyro timestamps.
+    unite_imu_method: 2
+    publish_tf: true
+
+/sensors/bar30_node:
+  ros__parameters:
+    i2c_bus: 1
+    rate_hz: 10.0
+    fluid_density: 997.0  # kg/m^3, fresh water
+    surface_pressure_pa: 101325.0
+    depth_variance: 0.0004  # m^2
+    frame_id: odom
+    child_frame_id: base_link
+
+/sensors/ping2_node:
+  ros__parameters:
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    rate_hz: 10.0
+    speed_of_sound: 1500.0  # m/s
+    min_confidence: 80  # percent
+    field_of_view: 0.436  # rad, the Ping2's 25 degree beam
+    frame_id: ping2_link

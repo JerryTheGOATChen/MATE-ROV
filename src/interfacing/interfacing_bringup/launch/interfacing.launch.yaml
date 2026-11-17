@@ -13,7 +13,51 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
-  # Lifecycle Manager: add a node_names parameter listing every lifecycle node above
+  - arg:
+      name: params_file
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
+      description: Interfacing parameters
+
+  # Cameras. realsense2_camera is not a lifecycle node, so the manager below does not list it.
+  - node:
+      pkg: "realsense2_camera"
+      exec: "realsense2_camera_node"
+      name: "camera_front"
+      namespace: "sensors"
+      output: "screen"
+      param:
+        - from: "$(var params_file)"
+
+  - node:
+      pkg: "realsense2_camera"
+      exec: "realsense2_camera_node"
+      name: "camera_down"
+      namespace: "sensors"
+      output: "screen"
+      param:
+        - from: "$(var params_file)"
+
+  # Depth from the Bar30 pressure sensor
+  - node:
+      pkg: "pressure_driver"
+      exec: "bar30_node"
+      name: "bar30_node"
+      namespace: "sensors"
+      output: "screen"
+      param:
+        - from: "$(var params_file)"
+
+  # Height above the floor from the Ping2 altimeter
+  - node:
+      pkg: "altimeter_driver"
+      exec: "ping2_node"
+      name: "ping2_node"
+      namespace: "sensors"
+      output: "screen"
+      param:
+        - from: "$(var params_file)"
+
+  # Lifecycle Manager: node_names lists every lifecycle node above
   - node:
       pkg: "wato_lifecycle_manager"
       exec: "wato_lifecycle_manager_node"
@@ -29,3 +73,7 @@ launch:
           value: 4.0
         - name: bond_enabled
           value: $(var bond_enabled)
+        - name: node_names
+          value:
+            - "sensors/bar30_node"
+            - "sensors/ping2_node"

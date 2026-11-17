@@ -9,7 +9,7 @@ Every module builds, runs, and passes its tests out of the box. Each one contain
 | Module | Container | Purpose | Contents |
 |--------|-----------|---------|----------|
 | `infrastructure` | `infrastructure_bringup` | Shared services, always started | Zenoh router, Foxglove bridge, TF relays, topic healthchecker, `wato_lifecycle_manager`, `vision_msgs_markers` |
-| `interfacing` | `interfacing_bringup` | Hardware drivers, sensors, CAN, actuation | `pid_msgs` |
+| `interfacing` | `interfacing_bringup` | Hardware drivers, sensors, CAN, actuation | `pressure_driver` (Bar30 depth), `altimeter_driver` (Ping2 altitude), RealSense camera config, `pid_msgs` |
 | `perception` | `perception_bringup` (CUDA) | Detection, tracking, sensor fusion | |
 | `world_modeling` | `world_modeling_bringup` | Localization, mapping, prediction | |
 | `action` | `action_bringup` | Planning and control | Nav2 with 3D plugins (`rov_nav2_plugins`) |
