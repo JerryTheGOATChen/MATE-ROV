@@ -3,7 +3,7 @@
   <name>wato_test</name>
   <version>0.1.0</version>
   <description>C++ language generic utilities, independent of any other dependencies or frameworks</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

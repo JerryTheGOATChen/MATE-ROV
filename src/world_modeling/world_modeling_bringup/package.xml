@@ -4,7 +4,7 @@
   <name>world_modeling_bringup</name>
   <version>0.0.0</version>
   <description>Launch and configuration for the world_modeling module</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

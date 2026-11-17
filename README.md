@@ -1,6 +1,6 @@
-# WATonomous Monorepo Template
+# WUTT MATE ROV
 
-A starting point for WATonomous robotics projects. It contains the infrastructure from [wato_monorepo](https://github.com/WATonomous/wato_monorepo) without any robot-specific code. That includes the `watod` CLI, multi-stage Docker builds, docker compose profiles, the Zenoh router, Foxglove bridge, log viewer, unit testing with `wato_test`, pre-commit, and CI.
+The software for the MATE ROV built by WUTT, the [Waterloo Underwater Technology Team](https://wutt.info/). It started from WATonomous's monorepo template and keeps the infrastructure from [wato_monorepo](https://github.com/WATonomous/wato_monorepo) without any robot-specific code. That includes the `watod` CLI, multi-stage Docker builds, docker compose profiles, the Zenoh router, Foxglove bridge, log viewer, unit testing with `wato_test`, pre-commit, and CI.
 
 Every module builds, runs, and passes its tests out of the box. Each one contains a bringup package and a single example lifecycle node that you replace with real code.
 

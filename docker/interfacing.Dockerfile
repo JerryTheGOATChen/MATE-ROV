@@ -11,7 +11,7 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Clone external repositories here, e.g.
-# RUN git clone https://github.com/WATonomous/<repo>.git <repo>
+# RUN git clone https://github.com/<owner>/<repo>.git <repo>
 
 # Copy in source code
 COPY src/interfacing interfacing

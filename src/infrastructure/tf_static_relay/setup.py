@@ -22,8 +22,8 @@ setup(
     install_requires=["setuptools"],
     tests_require=["pytest"],
     zip_safe=True,
-    maintainer="WATonomous",
-    maintainer_email="hello@watonomous.ca",
+    maintainer="WUTT",
+    maintainer_email="j2639che@uwaterloo.ca",
     description="Republish /tf_static at a fixed rate for bag recording split chunks",
     license="Apache-2.0",
     entry_points={

@@ -243,7 +243,7 @@ if [[ "$SHOW_STATUS_PANEL" == "true" ]]; then
   # Display status panel
   echo ""
   echo -e "${BLUE}╔═══════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${BLUE}║${RESET}  ${BOLD}WATonomous Services Started${RESET}                              ${BLUE}║${RESET}"
+  echo -e "${BLUE}║${RESET}  ${BOLD}WUTT Services Started${RESET}                                    ${BLUE}║${RESET}"
   echo -e "${BLUE}╠═══════════════════════════════════════════════════════════╣${RESET}"
   echo -e "${BLUE}║${RESET}  ${GREEN}Running Containers:${RESET}                                      ${BLUE}║${RESET}"
 

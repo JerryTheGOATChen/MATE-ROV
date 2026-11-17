@@ -4,7 +4,7 @@
   <name>tf_static_relay</name>
   <version>0.0.0</version>
   <description>Republish /tf_static at a fixed rate for bag recording split chunks</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
