@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from types import SimpleNamespace
-
 import pytest
 import rclpy
 from rclpy.lifecycle import TransitionCallbackReturn
@@ -31,28 +29,25 @@ def reading(distance_mm=2500, confidence=100, scan_start_mm=300, scan_length_mm=
 
 
 class FakePing:
-    """Stand in for brping.Ping1D."""
+    """Stand in for altimeter_driver.ping2_node.Ping2."""
 
     def __init__(self, reply):
         self.reply = reply
-        self.accept_settings = True
+        self.configure_error = None
         self.speed_of_sound = None
         self.ping_interval = None
         self.closed = False
-        self.iodev = SimpleNamespace(close=self._close)
 
-    def set_speed_of_sound(self, speed_of_sound):
-        self.speed_of_sound = speed_of_sound
-        return self.accept_settings
-
-    def set_ping_interval(self, ping_interval):
-        self.ping_interval = ping_interval
-        return self.accept_settings
+    def configure(self, speed_of_sound_mm_s, ping_interval_ms):
+        if self.configure_error is not None:
+            raise self.configure_error
+        self.speed_of_sound = speed_of_sound_mm_s
+        self.ping_interval = ping_interval_ms
 
     def get_distance(self):
         return self.reply
 
-    def _close(self):
+    def close(self):
         self.closed = True
 
 
@@ -153,7 +148,9 @@ def test_configure_fails_without_the_device(ros):
 
 def test_configure_fails_when_settings_are_rejected(ros):
     device = FakePing(reading())
-    device.accept_settings = False
+    device.configure_error = OSError(
+        "asked for a ping interval of 100, the device reports 250"
+    )
     node = Ping2Node(open_device=lambda port, baudrate: device)
 
     assert node.trigger_configure() == TransitionCallbackReturn.FAILURE

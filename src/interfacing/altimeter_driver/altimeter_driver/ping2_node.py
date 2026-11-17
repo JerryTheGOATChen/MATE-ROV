@@ -23,16 +23,68 @@ from sensor_msgs.msg import Range
 _MM_PER_M = 1000.0
 
 
+class Ping2:
+    """The Ping2 operations this node needs, on top of a connected `brping.Ping1D`."""
+
+    def __init__(self, device):
+        self._device = device
+
+    def configure(self, speed_of_sound_mm_s, ping_interval_ms):
+        """Write the device settings. Raises `OSError` if the device does not report them back."""
+        from brping import definitions
+
+        self._write_setting(
+            "speed of sound",
+            definitions.PING1D_SET_SPEED_OF_SOUND,
+            definitions.PING1D_SPEED_OF_SOUND,
+            speed_of_sound_mm_s,
+        )
+        self._write_setting(
+            "ping interval",
+            definitions.PING1D_SET_PING_INTERVAL,
+            definitions.PING1D_PING_INTERVAL,
+            ping_interval_ms,
+        )
+
+    def get_distance(self):
+        """Return the latest reading as brping's `get_distance` dict, or None without a reply."""
+        return self._device.get_distance()
+
+    def close(self):
+        self._device.iodev.close()
+
+    def _write_setting(self, name, set_id, get_id, value):
+        # brping 0.2.5's set_speed_of_sound() and set_ping_interval() use field names that no
+        # longer match its protocol definitions: the first sends zero and the second checks a
+        # stale value. Fill in the message's one field by its defined name instead.
+        from brping import PingMessage
+
+        msg = PingMessage(set_id)
+        setattr(msg, msg.payload_field_names[0], value)
+        msg.pack_msg_data()
+        self._device.write(msg.msg_data)
+
+        reply = self._device.legacyRequest(get_id)
+        if reply is None:
+            raise OSError(f"no reply when setting the {name}")
+        reported = getattr(reply, reply.payload_field_names[0])
+        if reported != value:
+            raise OSError(
+                f"asked for a {name} of {value}, the device reports {reported}"
+            )
+
+
 def open_ping2(port, baudrate):
     """Open the Ping2 on the given serial port and check that it answers."""
     from brping import Ping1D
 
-    ping = Ping1D()
-    ping.connect_serial(port, baudrate)
-    if not ping.initialize():
-        ping.iodev.close()
+    device = Ping1D()
+    device.connect_serial(port, baudrate)
+    ping2 = Ping2(device)
+    if not device.initialize():
+        ping2.close()
         raise OSError("the device did not answer")
-    return ping
+    return ping2
 
 
 def range_from_reading(reading, min_confidence):
@@ -94,16 +146,11 @@ class Ping2Node(Node):
 
         try:
             self._device = self._open_device(port, baudrate)
+            self._device.configure(
+                round(speed_of_sound * _MM_PER_M), round(_MM_PER_M / self._rate_hz)
+            )
         except Exception as error:
-            self.get_logger().error(f"Could not open the Ping2 on {port}: {error}")
-            return TransitionCallbackReturn.FAILURE
-
-        ping_interval_ms = round(_MM_PER_M / self._rate_hz)
-        if not (
-            self._device.set_speed_of_sound(round(speed_of_sound * _MM_PER_M))
-            and self._device.set_ping_interval(ping_interval_ms)
-        ):
-            self.get_logger().error("The Ping2 did not accept its settings")
+            self.get_logger().error(f"Could not set up the Ping2 on {port}: {error}")
             self._release()
             return TransitionCallbackReturn.FAILURE
 
@@ -164,7 +211,7 @@ class Ping2Node(Node):
             self.destroy_publisher(self._pub)
             self._pub = None
         if self._device is not None:
-            self._device.iodev.close()
+            self._device.close()
             self._device = None
 
 
