@@ -1,6 +1,6 @@
 # pressure_driver
 
-Driver for the Blue Robotics Bar30 pressure sensor (MS5837-30BA on I2C address `0x76`). `bar30_node` is a lifecycle node that reads the pressure and publishes the ROV's depth.
+Driver for the Blue Robotics Bar30 pressure sensor (MS5837-30BA on I2C address `0x76`). `bar30_node` is a C++ lifecycle node (also a component, `pressure_driver::Bar30Node`) that reads the pressure over Linux I2C and publishes the ROV's depth.
 
 ## Topics
 
@@ -24,4 +24,4 @@ A failed read publishes nothing, so a stale topic means the sensor is not answer
 
 ## Credits
 
-`ms5837.py` is adapted from [bluerobotics/ms5837-python](https://github.com/bluerobotics/ms5837-python) (MIT License).
+`ms5837.cpp` follows the MS5837-30BA datasheet, as do Blue Robotics' MIT-licensed [MS5837 libraries](https://github.com/bluerobotics/ms5837-python).
