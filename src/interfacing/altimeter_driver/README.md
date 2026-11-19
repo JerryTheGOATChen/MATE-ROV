@@ -1,6 +1,6 @@
 # altimeter_driver
 
-Driver for the Blue Robotics Ping2 altimeter. `ping2_node` is a lifecycle node that publishes the distance from the transducer to the floor, using the [bluerobotics-ping](https://pypi.org/project/bluerobotics-ping/) library.
+Driver for the Blue Robotics Ping2 altimeter. `ping2_node` is a C++ lifecycle node (also a component, `altimeter_driver::Ping2Node`) that publishes the distance from the transducer to the floor. It speaks the [Ping protocol](https://docs.bluerobotics.com/ping-protocol/) over the serial port itself (`ping2.hpp`), implementing only the messages it uses, so it has no dependencies beyond ROS.
 
 ## Topics
 
@@ -9,6 +9,8 @@ Driver for the Blue Robotics Ping2 altimeter. `ping2_node` is a lifecycle node t
 | `altitude` | `sensor_msgs/Range` | Distance along the beam to the floor in metres |
 
 A missing or low-confidence reading publishes nothing, so a stale topic means the altitude is unknown.
+
+Configuring the node writes `speed_of_sound` and a ping interval of `1000 / rate_hz` ms to the device, and fails unless the device reports both back.
 
 ## Parameters
 
