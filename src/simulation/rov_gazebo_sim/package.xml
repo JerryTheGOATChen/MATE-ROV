@@ -4,7 +4,7 @@
   <name>rov_gazebo_sim</name>
   <version>0.1.0</version>
   <description>Gazebo pool with a simulated ROV, its noisy sensors, an EKF and a 3D sonar, for testing the action module's Nav2</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

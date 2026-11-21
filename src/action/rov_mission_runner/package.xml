@@ -4,7 +4,7 @@
   <name>rov_mission_runner</name>
   <version>0.1.0</version>
   <description>Runs navigation missions through Nav2 and scores each run against acceptance criteria</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache-2.0</license>
 
   <exec_depend>geometry_msgs</exec_depend>

@@ -4,7 +4,7 @@
   <name>perception_bringup</name>
   <version>0.0.0</version>
   <description>Launch and configuration for the perception module</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

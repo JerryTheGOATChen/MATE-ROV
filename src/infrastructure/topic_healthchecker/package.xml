@@ -4,7 +4,7 @@
   <name>topic_healthchecker</name>
   <version>0.0.0</version>
   <description>Monitors configured ROS 2 topics for liveness and message rate</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

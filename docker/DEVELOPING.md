@@ -10,7 +10,7 @@ That being said, you do not need to know the entirety of docker to make sense of
 
 ## Directory Structure
 
-**`base/`** - Dockerfiles for building base images (ROS2 + WATonomous tooling). Ran with GitHub Actions
+**`base/`** - Dockerfiles for building base images (ROS2 + team tooling). Ran with GitHub Actions
 
 **`config/`** - Configuration files copied into containers (entrypoint script, bashrc, RMW configs)
 

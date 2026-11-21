@@ -1,4 +1,4 @@
-# WATonomous development bashrc additions
+# WUTT development bashrc additions
 # This file is sourced by ~/.bashrc in development containers
 
 # Enable terminal colors

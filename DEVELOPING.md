@@ -1,4 +1,4 @@
-# Developer Guidelines for the WATonomous Monorepo Template
+# Developer Guidelines for the WUTT MATE ROV Monorepo
 
 ## watod
 
@@ -33,7 +33,7 @@ To begin using `watod`, edit the [`watod-config.sh`](./watod-config.sh) or creat
 
 ## Base Images and Docker Registry
 
-WATonomous hosts a docker registry where we store various docker images on the internet. We currently use ghcr.io
+We host a docker registry where we store various docker images on the internet. We currently use ghcr.io
 
 ```bash
 # BEFORE YOU RUN, you need to create a personal access token with write:packages
@@ -51,7 +51,7 @@ Our base images are built by this repo and published at `ghcr.io/jerrythegoatche
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
 
 ## DevContainers
-The WATonomous monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.
+The monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.
 
 To setup a DevContainer:
 1. Append `:dev` to any of the $ACTIVE_MODULES you specify in `watod-config.sh`.

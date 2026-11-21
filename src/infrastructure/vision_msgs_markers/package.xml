@@ -4,7 +4,7 @@
   <name>vision_msgs_markers</name>
   <version>0.0.0</version>
   <description>Generic node to convert vision_msgs Detection3DArray to visualization_msgs MarkerArray</description>
-  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <maintainer email="j2639che@uwaterloo.ca">WUTT</maintainer>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

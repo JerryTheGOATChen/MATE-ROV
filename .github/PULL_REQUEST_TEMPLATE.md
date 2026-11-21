@@ -15,8 +15,7 @@ Thank you for contributing! Please fill out the checklist below so we can review
 - [ ] I listed any breaking changes in the “Notes” section
 
 ### 🔗  Related Issues / PRs
-Fixes #123
-Depends on #456
+<!-- e.g. Fixes #12 (closes issue 12 on merge), Depends on #34 -->
 
 ### 📝  Notes for reviewers
 <!-- Special deployment steps, risks, or anything you’d like a reviewer to know. -->
