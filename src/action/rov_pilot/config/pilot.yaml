@@ -1,0 +1,1 @@
+# TODO: Define ROS 2 node parameters (deadzones, axis mappings, speed limits, and thruster/timeout configs) for teleop_node and pilot_node.
