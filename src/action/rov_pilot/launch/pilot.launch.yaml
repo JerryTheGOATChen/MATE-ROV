@@ -1,0 +1,1 @@
+# TODO: Launch teleop_node and pilot_node, loading parameters from config/pilot.yaml and remapping topics if needed.
