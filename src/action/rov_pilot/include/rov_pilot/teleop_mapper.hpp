@@ -1,0 +1,1 @@
+// C++ class for axis sclaing, deadzones, and button mapping
